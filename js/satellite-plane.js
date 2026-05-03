@@ -1,17 +1,24 @@
-// Satellite-textured ground plane for the 3D scene.
+// Textured ground plane for the 3D scene.
 //
-// Fetches Esri World Imagery tiles covering the flight bbox, stitches them
-// onto an offscreen canvas, and returns a THREE.Mesh sized in real meters
-// using the same projection viewer.js uses for the path. The mesh sits at
-// y = 0 (which is min-altitude in the local frame), so the drone path floats
-// above it the way the actual flight floated above the ground.
+// Fetches Esri tiles (satellite imagery or a streets/labels map) covering the
+// flight bbox, stitches them onto an offscreen canvas, and returns a
+// THREE.Mesh sized in real meters using the same projection viewer.js uses
+// for the path. The mesh sits at y = 0 (which is min-altitude in the local
+// frame), so the drone path floats above it the way the actual flight
+// floated above the ground.
 //
 // On any tile-load error or canvas taint, returns null so the caller can
 // keep the grid fallback.
 
 import * as THREE from 'three';
 
-const TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const TILE_URLS = {
+  // Esri World Imagery: photographic satellite tiles.
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  // Esri World Street Map: regular roads-and-labels map (CORS-clean, same
+  // family as the satellite tiles).
+  streets:   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+};
 const TILE_SIZE = 256;
 const MAX_NATIVE_ZOOM = 19;
 const MAX_TILES_PER_AXIS = 8;
@@ -62,9 +69,10 @@ function loadImage(url) {
   });
 }
 
-export async function createSatellitePlane({
-  latMin, latMax, lonMin, lonMax, projectXYZ,
+export async function createGroundPlane({
+  latMin, latMax, lonMin, lonMax, projectXYZ, style = 'satellite',
 }) {
+  const tileUrlTemplate = TILE_URLS[style] || TILE_URLS.satellite;
   // Pad bbox so the plane extends past the path.
   const dLat = Math.max(latMax - latMin, 1e-6);
   const dLon = Math.max(lonMax - lonMin, 1e-6);
@@ -87,7 +95,7 @@ export async function createSatellitePlane({
   const requests = [];
   for (let ty = tyMin; ty <= tyMax; ty++) {
     for (let tx = txMin; tx <= txMax; tx++) {
-      const url = TILE_URL.replace('{z}', z).replace('{x}', tx).replace('{y}', ty);
+      const url = tileUrlTemplate.replace('{z}', z).replace('{x}', tx).replace('{y}', ty);
       requests.push(loadImage(url).then(img => ({ img, tx, ty })));
     }
   }
@@ -96,7 +104,7 @@ export async function createSatellitePlane({
   try {
     tiles = await Promise.all(requests);
   } catch (e) {
-    console.warn('[satellite-plane] tile fetch failed, falling back to grid:', e.message);
+    console.warn(`[ground-plane] tile fetch failed (style=${style}):`, e.message);
     return null;
   }
 

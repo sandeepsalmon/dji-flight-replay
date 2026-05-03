@@ -4,7 +4,10 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createSatellitePlane } from './satellite-plane.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { createGroundPlane } from './satellite-plane.js';
 
 // init(records, segments): set up everything and start the render loop.
 // records:  array of telemetry records sorted by .t (seconds from flight start)
@@ -111,58 +114,124 @@ export function initViewer(records, segments) {
   controls.dampingFactor = 0.08;
 
   // Equirectangular local-meter projection centred on the first GPS fix.
+  // For Y we prefer DJI's `alt_rel` (height above home/takeoff) since that
+  // matches the ground plane (which sits at takeoff level). When alt_rel is
+  // missing we fall back to absolute altitude minus the first GPS sample's
+  // altitude — close enough but a few metres off if GPS locks after takeoff.
   const meterPerLat = 111320;
   const lonScale = (lat) => 111320 * Math.cos(lat * Math.PI / 180);
   const cx = gpsPoints.length ? gpsPoints[0].lon : 0;
   const cy = gpsPoints.length ? gpsPoints[0].lat : 0;
-  const baseAlt = gpsPoints.length ? Math.min(...gpsPoints.map(d => d.alt || 0)) : 0;
-  function projectXYZ(lat, lon, alt) {
+  const baseAlt = gpsPoints.length ? (gpsPoints[0].alt ?? 0) : 0;
+  function projectXYZ(lat, lon, alt, alt_rel) {
     const x = (lon - cx) * lonScale(cy);
     const z = -(lat - cy) * meterPerLat;
-    const y = ((alt ?? baseAlt) - baseAlt);
+    const y = (alt_rel !== undefined && Number.isFinite(alt_rel))
+      ? alt_rel
+      : ((alt ?? baseAlt) - baseAlt);
     return [x, y, z];
   }
-  function projectVec(lat, lon, alt) {
-    const [x, y, z] = projectXYZ(lat, lon, alt);
+  function projectVec(lat, lon, alt, alt_rel) {
+    const [x, y, z] = projectXYZ(lat, lon, alt, alt_rel);
     return new THREE.Vector3(x, y, z);
   }
 
-  // Ground floor: start with a grid for instant feedback, then swap in a
-  // satellite-textured plane once the Esri tiles for the flight bbox load.
+  // Ground style is user-toggleable: 'grid' (default), 'satellite', 'streets'.
+  // Tile-textured planes load lazily on first request and are cached so
+  // switching back is instant.
   const grid = new THREE.GridHelper(2000, 80, 0x30363d, 0x21262d);
   scene.add(grid);
+  let currentGround = grid;
+  const groundCache = { grid };          // grid: ready; satellite/streets: loaded on demand
+  const groundInflight = {};             // de-dupe simultaneous loads
+  let bboxLats = null, bboxLons = null;
   if (gpsPoints.length) {
-    const lats = gpsPoints.map(p => p.lat);
-    const lons = gpsPoints.map(p => p.lon);
-    createSatellitePlane({
-      latMin: Math.min(...lats), latMax: Math.max(...lats),
-      lonMin: Math.min(...lons), lonMax: Math.max(...lons),
-      projectXYZ,
-    }).then(plane => {
-      if (plane) {
-        scene.remove(grid);
-        scene.add(plane);
-        console.log('[satellite-plane] loaded, size=' + plane.geometry.parameters.width.toFixed(1) + 'x' + plane.geometry.parameters.height.toFixed(1) + ' at y=' + plane.position.y);
-      } else {
-        console.warn('[satellite-plane] returned null, keeping grid');
-      }
-    }).catch((e) => { console.warn('[satellite-plane] error:', e?.message); });
+    bboxLats = gpsPoints.map(p => p.lat);
+    bboxLons = gpsPoints.map(p => p.lon);
   }
 
-  const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt || baseAlt));
+  async function setGroundStyle(style) {
+    if (style === 'grid') {
+      if (currentGround !== grid) { scene.remove(currentGround); scene.add(grid); currentGround = grid; }
+      return;
+    }
+    if (!bboxLats) return;
+    if (groundCache[style]) {
+      if (currentGround !== groundCache[style]) {
+        scene.remove(currentGround);
+        scene.add(groundCache[style]);
+        currentGround = groundCache[style];
+      }
+      return;
+    }
+    if (groundInflight[style]) return;
+    groundInflight[style] = (async () => {
+      try {
+        const plane = await createGroundPlane({
+          latMin: Math.min(...bboxLats), latMax: Math.max(...bboxLats),
+          lonMin: Math.min(...bboxLons), lonMax: Math.max(...bboxLons),
+          projectXYZ, style,
+        });
+        if (!plane) return;
+        groundCache[style] = plane;
+        // Only swap in if the user is still asking for this style.
+        if (groundBtns[style]?.classList.contains('active')) {
+          scene.remove(currentGround);
+          scene.add(plane);
+          currentGround = plane;
+        }
+      } catch (_) { /* keep grid */ }
+      finally { groundInflight[style] = null; }
+    })();
+  }
+
+  // Hook up the segmented control. The buttons live in index.html under
+  // #ground-mode (Grid · Satellite · Map).
+  const groundBtns = {};
+  for (const btn of document.querySelectorAll('#ground-mode button')) {
+    groundBtns[btn.dataset.g] = btn;
+    btn.addEventListener('click', () => {
+      for (const b of document.querySelectorAll('#ground-mode button')) b.classList.remove('active');
+      btn.classList.add('active');
+      setGroundStyle(btn.dataset.g);
+    });
+  }
+
+  const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt ?? baseAlt, d.alt_rel));
   let pathSize = 200;
-  let trailPos = null, trail = null;
+  let trail = null, trailGeo = null;
+  const thickLineMaterials = [];   // collected so resize() can update resolution
   if (pathPts.length) {
-    scene.add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(pathPts),
-      new THREE.LineBasicMaterial({ color: 0x58a6ff }),
-    ));
-    trailPos = new Float32Array(pathPts.length * 3);
-    const trailGeo = new THREE.BufferGeometry();
-    trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
-    trailGeo.setDrawRange(0, 0);
-    trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0xff6b35 }));
+    // Static full-flight path. Line2 + LineMaterial = pixel-thick lines that
+    // stay visible on busy satellite backgrounds (THREE.LineBasicMaterial
+    // ignores linewidth in WebGL — it always renders 1 px wide).
+    const flat = new Float32Array(pathPts.length * 3);
+    for (let i = 0; i < pathPts.length; i++) {
+      flat[i * 3]     = pathPts[i].x;
+      flat[i * 3 + 1] = pathPts[i].y;
+      flat[i * 3 + 2] = pathPts[i].z;
+    }
+    const pathGeo = new LineGeometry();
+    pathGeo.setPositions(flat);
+    const pathMat = new LineMaterial({
+      color: 0x4ea3ff, linewidth: 4, transparent: true, opacity: 0.9,
+      depthTest: true, dashed: false,
+    });
+    thickLineMaterials.push(pathMat);
+    scene.add(new Line2(pathGeo, pathMat));
+
+    // Animated traveled trail.
+    trailGeo = new LineGeometry();
+    trailGeo.setPositions(flat.slice(0, 3));   // start with one point
+    const trailMat = new LineMaterial({
+      color: 0xff6b35, linewidth: 6, transparent: true, opacity: 1,
+      depthTest: true, dashed: false,
+    });
+    thickLineMaterials.push(trailMat);
+    trail = new Line2(trailGeo, trailMat);
+    trail.renderOrder = 2;
     scene.add(trail);
+
     const box = new THREE.Box3().setFromPoints(pathPts);
     const center = box.getCenter(new THREE.Vector3());
     pathSize = Math.max(box.getSize(new THREE.Vector3()).length(), 50);
@@ -209,6 +278,8 @@ export function initViewer(records, segments) {
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      // LineMaterial needs the viewport size to compute pixel-correct width.
+      for (const m of thickLineMaterials) m.resolution.set(w, h);
     }
   }
   new ResizeObserver(resize).observe(canvas);
@@ -348,7 +419,7 @@ export function initViewer(records, segments) {
     }
 
     if (r.lat !== undefined) {
-      const [x, y, z] = projectXYZ(r.lat, r.lon, r.alt);
+      const [x, y, z] = projectXYZ(r.lat, r.lon, r.alt, r.alt_rel);
       droneGroup.position.set(x, y, z);
       if (r.yaw !== undefined) droneGroup.rotation.y = -r.yaw * Math.PI / 180;
       if (r.pitch !== undefined) droneGroup.rotation.x = r.pitch * Math.PI / 180;
@@ -358,25 +429,28 @@ export function initViewer(records, segments) {
       droneGroup.visible = false;
     }
 
-    if (trail && trailPos) {
-      let visible = 0;
+    if (trail && trailGeo) {
+      // Build a flat positions array of every path point up to `curT`,
+      // followed by the live interpolated tip so the trail head stays
+      // glued to the drone.
+      const out = [];
       for (let i = 0; i < gpsPoints.length; i++) {
         if (gpsPoints[i].t > curT) break;
         const p = pathPts[i];
-        trailPos[visible * 3] = p.x;
-        trailPos[visible * 3 + 1] = p.y;
-        trailPos[visible * 3 + 2] = p.z;
-        visible++;
+        out.push(p.x, p.y, p.z);
       }
-      if (r.lat !== undefined && visible < pathPts.length) {
-        const [x, y, z] = projectXYZ(r.lat, r.lon, r.alt);
-        trailPos[visible * 3] = x;
-        trailPos[visible * 3 + 1] = y;
-        trailPos[visible * 3 + 2] = z;
-        visible++;
+      if (r.lat !== undefined) {
+        const [x, y, z] = projectXYZ(r.lat, r.lon, r.alt, r.alt_rel);
+        out.push(x, y, z);
       }
-      trail.geometry.attributes.position.needsUpdate = true;
-      trail.geometry.setDrawRange(0, visible);
+      // LineGeometry needs at least one segment (two points). Hide the line
+      // entirely until we have that.
+      if (out.length >= 6) {
+        trailGeo.setPositions(out);
+        trail.visible = true;
+      } else {
+        trail.visible = false;
+      }
     }
 
     for (const [k, , unit] of FIELDS) {
@@ -395,8 +469,8 @@ export function initViewer(records, segments) {
     if (followMode && r.lat !== undefined) {
       const past = sampleAt(Math.max(T0, curT - 0.6));
       if (past.lat !== undefined) {
-        const [px, , pz] = projectXYZ(past.lat, past.lon, past.alt);
-        const [cx2, , cz2] = projectXYZ(r.lat, r.lon, r.alt);
+        const [px, , pz] = projectXYZ(past.lat, past.lon, past.alt, past.alt_rel);
+        const [cx2, , cz2] = projectXYZ(r.lat, r.lon, r.alt, r.alt_rel);
         _tmpFwd.set(cx2 - px, 0, cz2 - pz);
         if (_tmpFwd.lengthSq() > 0.04) {
           _tmpFwd.normalize();
@@ -406,7 +480,7 @@ export function initViewer(records, segments) {
       }
       const back = Math.max(pathSize * 0.10, 25);
       const up = Math.max(pathSize * 0.05, 12);
-      const [dx, dy, dz] = projectXYZ(r.lat, r.lon, r.alt);
+      const [dx, dy, dz] = projectXYZ(r.lat, r.lon, r.alt, r.alt_rel);
       _camTarget.set(dx, dy, dz);
       _camDesired.copy(_camTarget).addScaledVector(followForward, -back);
       _camDesired.y += up;

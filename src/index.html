@@ -53,7 +53,14 @@
       <div class="view">
         <div class="label">3D · Scene</div>
         <canvas id="scene"></canvas>
-        <button id="cam-mode">Free</button>
+        <div class="scene-controls">
+          <div class="ground-mode" id="ground-mode">
+            <button data-g="grid" class="active">Grid</button>
+            <button data-g="satellite">Satellite</button>
+            <button data-g="streets">Map</button>
+          </div>
+          <button id="cam-mode">Free</button>
+        </div>
         <div class="telemetry" id="tel"></div>
       </div>
     </div>

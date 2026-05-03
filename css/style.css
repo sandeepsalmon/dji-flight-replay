@@ -427,12 +427,48 @@ header #reload:active { transform: scale(0.95); }
   letter-spacing: -0.016em;
 }
 
-/* 3D camera-mode toggle — Apple-blue pill, top-right of dark tile */
-#cam-mode {
+/* 3D pane top-right control cluster — ground-mode segmented + camera pill */
+.scene-controls {
   position: absolute;
   top: 12px;
   right: 14px;
   z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ground-mode {
+  display: flex;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--r-pill);
+  padding: 2px;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.ground-mode button {
+  background: transparent;
+  color: var(--on-dark);
+  border: 0;
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.ground-mode button:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.ground-mode button:active { transform: scale(0.95); }
+.ground-mode button.active {
+  background: rgba(255,255,255,0.92);
+  color: var(--ink);
+}
+
+/* 3D camera-mode toggle — Apple-blue pill, sits next to the ground switcher */
+#cam-mode {
   background: rgba(255,255,255,0.14);
   color: var(--on-dark);
   border: 1px solid rgba(255,255,255,0.16);
@@ -449,8 +485,7 @@ header #reload:active { transform: scale(0.95); }
 }
 #cam-mode:hover { background: rgba(255,255,255,0.20); }
 #cam-mode:active { transform: scale(0.95); }
-#cam-mode.is-follow,
-#cam-mode[style*="accent"] {
+#cam-mode.is-follow {
   background: var(--primary);
   border-color: var(--primary);
 }
