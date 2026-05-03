@@ -467,6 +467,56 @@ header #reload:active { transform: scale(0.95); }
   color: var(--ink);
 }
 
+/* Bottom-right zoom & expand cluster on the 3D pane */
+.scene-tools {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scene-tools button {
+  background: rgba(255,255,255,0.14);
+  color: var(--on-dark);
+  border: 1px solid rgba(255,255,255,0.16);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 6px 11px;
+  border-radius: var(--r-pill);
+  min-width: 28px;
+  cursor: pointer;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  transition: background 120ms ease, transform 120ms ease;
+}
+.scene-tools button:hover { background: rgba(255,255,255,0.22); }
+.scene-tools button:active { transform: scale(0.93); }
+#zoom-in, #zoom-out {
+  font-size: 14px;
+  font-weight: 500;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* When the 3D pane is expanded in-page, video and map shrink to thin strips
+   on the left and the 3D scene dominates. Keeps both visible for context. */
+body.expand-big .views { grid-template-columns: 1fr 5fr; }
+body.expand-big .right { grid-template-rows: 1fr 7fr; }
+
+/* When the 3D scene is browser-fullscreen, hide our overlay labels behind it.
+   The :fullscreen pseudo-class scopes styles only when this element is the
+   one in browser fullscreen — telemetry stays visible, the side panes don't. */
+.view:fullscreen { background: var(--surface-tile-1); }
+.view:fullscreen .telemetry { left: 16px; right: 16px; bottom: 16px; }
+
 /* 3D camera-mode toggle — Apple-blue pill, sits next to the ground switcher */
 #cam-mode {
   background: rgba(255,255,255,0.14);

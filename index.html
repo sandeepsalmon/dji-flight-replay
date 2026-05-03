@@ -475,6 +475,56 @@ header #reload:active { transform: scale(0.95); }
   color: var(--ink);
 }
 
+/* Bottom-right zoom & expand cluster on the 3D pane */
+.scene-tools {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scene-tools button {
+  background: rgba(255,255,255,0.14);
+  color: var(--on-dark);
+  border: 1px solid rgba(255,255,255,0.16);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 6px 11px;
+  border-radius: var(--r-pill);
+  min-width: 28px;
+  cursor: pointer;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  transition: background 120ms ease, transform 120ms ease;
+}
+.scene-tools button:hover { background: rgba(255,255,255,0.22); }
+.scene-tools button:active { transform: scale(0.93); }
+#zoom-in, #zoom-out {
+  font-size: 14px;
+  font-weight: 500;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* When the 3D pane is expanded in-page, video and map shrink to thin strips
+   on the left and the 3D scene dominates. Keeps both visible for context. */
+body.expand-big .views { grid-template-columns: 1fr 5fr; }
+body.expand-big .right { grid-template-rows: 1fr 7fr; }
+
+/* When the 3D scene is browser-fullscreen, hide our overlay labels behind it.
+   The :fullscreen pseudo-class scopes styles only when this element is the
+   one in browser fullscreen — telemetry stays visible, the side panes don't. */
+.view:fullscreen { background: var(--surface-tile-1); }
+.view:fullscreen .telemetry { left: 16px; right: 16px; bottom: 16px; }
+
 /* 3D camera-mode toggle — Apple-blue pill, sits next to the ground switcher */
 #cam-mode {
   background: rgba(255,255,255,0.14);
@@ -694,6 +744,11 @@ input[type="range"]::-moz-range-thumb {
             <button data-g="streets">Map</button>
           </div>
           <button id="cam-mode">Free</button>
+        </div>
+        <div class="scene-tools">
+          <button id="zoom-in"  title="Zoom in">+</button>
+          <button id="zoom-out" title="Zoom out">−</button>
+          <button id="expand"   title="Cycle: Normal → Bigger → Fullscreen">Expand</button>
         </div>
         <div class="telemetry" id="tel"></div>
       </div>
@@ -1441,9 +1496,18 @@ const TILE_URLS = {
   streets:   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
 };
 const TILE_SIZE = 256;
-const MAX_NATIVE_ZOOM = 19;
-const MAX_TILES_PER_AXIS = 8;
-const PAD_FRACTION = 0.30;          // 30% padding around the path bbox
+// Per-style coverage caps. Esri returns a "Map data not yet available"
+// placeholder when the requested zoom exceeds the tileset's coverage for
+// that location — and that placeholder bakes onto our 3D plane.
+// World_Imagery has dense satellite coverage globally up to z=18 (z=19 in
+// metro areas only). World_Street_Map ships fewer high-zoom tiles in rural
+// areas, so we cap it lower.
+const MAX_NATIVE_ZOOM = { satellite: 18, streets: 16 };
+const MAX_TILES_PER_AXIS = 10;
+// 1.0 = plane extends one bbox-width past the path on every side, so the
+// rendered area is roughly 9× the flight envelope. Lets the user dolly out
+// in the 3D scene without running off the edge of the map texture.
+const PAD_FRACTION = 1.0;
 
 // Web Mercator: lat/lon → tile XY at given zoom
 function lonToTileX(lon, z) {
@@ -1466,8 +1530,9 @@ function tileYToLat(y, z) {
 
 // Pick the largest zoom where the bbox fits within MAX_TILES_PER_AXIS in both
 // directions. Falls back to a sane default if the bbox is degenerate.
-function pickZoom(latMin, latMax, lonMin, lonMax) {
-  for (let z = MAX_NATIVE_ZOOM; z >= 0; z--) {
+function pickZoom(latMin, latMax, lonMin, lonMax, style) {
+  const max = MAX_NATIVE_ZOOM[style] ?? 18;
+  for (let z = max; z >= 0; z--) {
     const txMin = lonToTileX(lonMin, z);
     const txMax = lonToTileX(lonMax, z);
     const tyMin = latToTileY(latMax, z);   // note: north is smaller y
@@ -1503,7 +1568,7 @@ async function createGroundPlane({
   const bLonMin = lonMin - padLon;
   const bLonMax = lonMax + padLon;
 
-  const z = pickZoom(bLatMin, bLatMax, bLonMin, bLonMax);
+  const z = pickZoom(bLatMin, bLatMax, bLonMin, bLonMax, style);
   const txMin = lonToTileX(bLonMin, z);
   const txMax = lonToTileX(bLonMax, z);
   const tyMin = latToTileY(bLatMax, z);
@@ -1759,6 +1824,53 @@ function initViewer(records, segments) {
       setGroundStyle(btn.dataset.g);
     });
   }
+
+  // ---------- Zoom & expand controls (bottom-right of 3D pane) ----------
+  function zoomCamera(factor) {
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const newDist = dir.length() * factor;
+    if (newDist < 5 || newDist > 8000) return;   // sanity clamp
+    dir.setLength(newDist);
+    camera.position.copy(controls.target).add(dir);
+    controls.update();
+  }
+  document.getElementById('zoom-in')?.addEventListener('click',  () => zoomCamera(0.7));
+  document.getElementById('zoom-out')?.addEventListener('click', () => zoomCamera(1.4));
+
+  // Expand cycles: normal → bigger (in-page) → browser fullscreen → normal.
+  // Browser fullscreen is the cleanest "3D-only" mode since it removes
+  // every other UI chrome at the same time.
+  const expandBtn = document.getElementById('expand');
+  let expandMode = 'normal';
+  const sceneView = canvas.parentElement;
+  function applyExpandLabel() {
+    if (!expandBtn) return;
+    expandBtn.textContent = expandMode === 'normal' ? 'Expand'
+                          : expandMode === 'big'    ? 'Fullscreen'
+                          :                            'Restore';
+  }
+  expandBtn?.addEventListener('click', async () => {
+    if (expandMode === 'normal') {
+      document.body.classList.add('expand-big');
+      expandMode = 'big';
+    } else if (expandMode === 'big') {
+      document.body.classList.remove('expand-big');
+      try { await sceneView.requestFullscreen(); expandMode = 'fullscreen'; }
+      catch (_) { expandMode = 'normal'; }
+    } else {
+      try { if (document.fullscreenElement) await document.exitFullscreen(); }
+      catch (_) {}
+      expandMode = 'normal';
+    }
+    applyExpandLabel();
+  });
+  // If the user exits fullscreen via Esc, reset our state so the cycle stays in sync.
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && expandMode === 'fullscreen') {
+      expandMode = 'normal';
+      applyExpandLabel();
+    }
+  });
 
   const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt ?? baseAlt, d.alt_rel));
   let pathSize = 200;

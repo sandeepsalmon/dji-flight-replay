@@ -20,9 +20,18 @@ const TILE_URLS = {
   streets:   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
 };
 const TILE_SIZE = 256;
-const MAX_NATIVE_ZOOM = 19;
-const MAX_TILES_PER_AXIS = 8;
-const PAD_FRACTION = 0.30;          // 30% padding around the path bbox
+// Per-style coverage caps. Esri returns a "Map data not yet available"
+// placeholder when the requested zoom exceeds the tileset's coverage for
+// that location — and that placeholder bakes onto our 3D plane.
+// World_Imagery has dense satellite coverage globally up to z=18 (z=19 in
+// metro areas only). World_Street_Map ships fewer high-zoom tiles in rural
+// areas, so we cap it lower.
+const MAX_NATIVE_ZOOM = { satellite: 18, streets: 16 };
+const MAX_TILES_PER_AXIS = 10;
+// 1.0 = plane extends one bbox-width past the path on every side, so the
+// rendered area is roughly 9× the flight envelope. Lets the user dolly out
+// in the 3D scene without running off the edge of the map texture.
+const PAD_FRACTION = 1.0;
 
 // Web Mercator: lat/lon → tile XY at given zoom
 function lonToTileX(lon, z) {
@@ -45,8 +54,9 @@ function tileYToLat(y, z) {
 
 // Pick the largest zoom where the bbox fits within MAX_TILES_PER_AXIS in both
 // directions. Falls back to a sane default if the bbox is degenerate.
-function pickZoom(latMin, latMax, lonMin, lonMax) {
-  for (let z = MAX_NATIVE_ZOOM; z >= 0; z--) {
+function pickZoom(latMin, latMax, lonMin, lonMax, style) {
+  const max = MAX_NATIVE_ZOOM[style] ?? 18;
+  for (let z = max; z >= 0; z--) {
     const txMin = lonToTileX(lonMin, z);
     const txMax = lonToTileX(lonMax, z);
     const tyMin = latToTileY(latMax, z);   // note: north is smaller y
@@ -83,7 +93,7 @@ export async function createGroundPlane({
   const bLonMin = lonMin - padLon;
   const bLonMax = lonMax + padLon;
 
-  const z = pickZoom(bLatMin, bLatMax, bLonMin, bLonMax);
+  const z = pickZoom(bLatMin, bLatMax, bLonMin, bLonMax, style);
   const txMin = lonToTileX(bLonMin, z);
   const txMax = lonToTileX(bLonMax, z);
   const tyMin = latToTileY(bLatMax, z);

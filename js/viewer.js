@@ -197,6 +197,53 @@ export function initViewer(records, segments) {
     });
   }
 
+  // ---------- Zoom & expand controls (bottom-right of 3D pane) ----------
+  function zoomCamera(factor) {
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const newDist = dir.length() * factor;
+    if (newDist < 5 || newDist > 8000) return;   // sanity clamp
+    dir.setLength(newDist);
+    camera.position.copy(controls.target).add(dir);
+    controls.update();
+  }
+  document.getElementById('zoom-in')?.addEventListener('click',  () => zoomCamera(0.7));
+  document.getElementById('zoom-out')?.addEventListener('click', () => zoomCamera(1.4));
+
+  // Expand cycles: normal → bigger (in-page) → browser fullscreen → normal.
+  // Browser fullscreen is the cleanest "3D-only" mode since it removes
+  // every other UI chrome at the same time.
+  const expandBtn = document.getElementById('expand');
+  let expandMode = 'normal';
+  const sceneView = canvas.parentElement;
+  function applyExpandLabel() {
+    if (!expandBtn) return;
+    expandBtn.textContent = expandMode === 'normal' ? 'Expand'
+                          : expandMode === 'big'    ? 'Fullscreen'
+                          :                            'Restore';
+  }
+  expandBtn?.addEventListener('click', async () => {
+    if (expandMode === 'normal') {
+      document.body.classList.add('expand-big');
+      expandMode = 'big';
+    } else if (expandMode === 'big') {
+      document.body.classList.remove('expand-big');
+      try { await sceneView.requestFullscreen(); expandMode = 'fullscreen'; }
+      catch (_) { expandMode = 'normal'; }
+    } else {
+      try { if (document.fullscreenElement) await document.exitFullscreen(); }
+      catch (_) {}
+      expandMode = 'normal';
+    }
+    applyExpandLabel();
+  });
+  // If the user exits fullscreen via Esc, reset our state so the cycle stays in sync.
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && expandMode === 'fullscreen') {
+      expandMode = 'normal';
+      applyExpandLabel();
+    }
+  });
+
   const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt ?? baseAlt, d.alt_rel));
   let pathSize = 200;
   let trail = null, trailGeo = null;
