@@ -14,7 +14,7 @@ SRC = os.path.join(ROOT, 'src', 'index.html')
 # Bundled output (what end users open)
 OUT = os.path.join(ROOT, 'index.html')
 
-JS_ORDER = ['srt.js', 'mp4.js', 'dji.js', 'viewer.js', 'main.js']
+JS_ORDER = ['srt.js', 'mp4.js', 'dji.js', 'satellite-plane.js', 'viewer.js', 'main.js']
 
 # Strip relative `import { x } from './y.js'` lines, keep CDN/three imports.
 LOCAL_IMPORT = re.compile(r"^\s*import\s*(?:\{[^}]*\}|[\w*]+(?:\s+as\s+\w+)?)?\s*(?:from\s+)?['\"]\./[^'\"]+['\"];?\s*\n?", re.MULTILINE)

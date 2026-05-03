@@ -50,7 +50,7 @@ The whole thing is one HTML file. ~75 KB. No build, no server, no upload.
 
 ```bash
 # clone
-git clone https://github.com/sandeep-docket/dji-flight-replay.git
+git clone https://github.com/sandeepsalmon/dji-flight-replay.git
 cd dji-flight-replay
 
 # open

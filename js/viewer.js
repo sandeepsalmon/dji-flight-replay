@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createSatellitePlane } from './satellite-plane.js';
 
 // init(records, segments): set up everything and start the render loop.
 // records:  array of telemetry records sorted by .t (seconds from flight start)
@@ -126,7 +127,21 @@ export function initViewer(records, segments) {
     return new THREE.Vector3(x, y, z);
   }
 
-  scene.add(new THREE.GridHelper(2000, 80, 0x30363d, 0x21262d));
+  // Ground floor: start with a grid for instant feedback, then swap in a
+  // satellite-textured plane once the Esri tiles for the flight bbox load.
+  const grid = new THREE.GridHelper(2000, 80, 0x30363d, 0x21262d);
+  scene.add(grid);
+  if (gpsPoints.length) {
+    const lats = gpsPoints.map(p => p.lat);
+    const lons = gpsPoints.map(p => p.lon);
+    createSatellitePlane({
+      latMin: Math.min(...lats), latMax: Math.max(...lats),
+      lonMin: Math.min(...lons), lonMax: Math.max(...lons),
+      projectXYZ,
+    }).then(plane => {
+      if (plane) { scene.remove(grid); scene.add(plane); }
+    }).catch(() => { /* leave the grid */ });
+  }
 
   const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt || baseAlt));
   let pathSize = 200;
