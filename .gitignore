@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+.vercel/
+*.log
+
+# Sample DJI footage that lives outside the repo
+*.MP4
+*.mp4
+*.MOV
+*.mov
+*.LRF
+*.lrf
+*.SRT
+*.srt

@@ -1,0 +1,597 @@
+/* ============================================================================
+   DJI Flight Replay — Apple-style design system
+   Tokens follow the spec: SF Pro stack, single blue accent, parchment rhythm,
+   pill CTA grammar, single product-shadow reserved for video imagery.
+   ========================================================================== */
+
+:root {
+  /* Brand & accent (one blue, no second color) */
+  --primary:        #0066cc;
+  --primary-focus:  #0071e3;
+  --primary-on-dark:#2997ff;
+
+  /* Surface */
+  --canvas:           #ffffff;
+  --canvas-parchment: #f5f5f7;
+  --surface-pearl:    #fafafc;
+  --surface-tile-1:   #272729;
+  --surface-tile-2:   #2a2a2c;
+  --surface-tile-3:   #252527;
+  --surface-black:    #000000;
+  --surface-chip:     rgba(210,210,215,0.64);
+
+  /* Text */
+  --ink:           #1d1d1f;
+  --on-dark:       #ffffff;
+  --on-dark-muted: #cccccc;
+  --ink-muted-80:  #333333;
+  --ink-muted-48:  #7a7a7a;
+
+  /* Lines */
+  --hairline:     #e0e0e0;
+  --divider-soft: rgba(0,0,0,0.04);
+
+  /* Typography */
+  --font-display: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-text:    "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Radius */
+  --r-sm:  8px;
+  --r-md:  11px;
+  --r-lg:  18px;
+  --r-pill: 9999px;
+
+  /* Shadow — exactly one in the system, only on photographic surfaces */
+  --shadow-product: rgba(0,0,0,0.22) 3px 5px 30px;
+
+  /* Spacing (4-base, structural snaps to 8/12/16/20/24) */
+  --s-xxs: 4px;
+  --s-xs:  8px;
+  --s-sm:  12px;
+  --s-md:  17px;
+  --s-lg:  24px;
+  --s-xl:  32px;
+  --s-xxl: 48px;
+  --s-section: 80px;
+
+  /* Nav heights */
+  --nav-global-h: 44px;
+  --nav-sub-h:    52px;
+  --footer-h:     64px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--canvas-parchment);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Universal text-link */
+a, .text-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+a:hover, .text-link:hover { text-decoration: underline; }
+
+/* ============================================================================
+   Drop / landing tile
+   The first surface — full-bleed parchment hero with a 56px display headline
+   and a single blue pill CTA (a label wrapping the file input).
+   ========================================================================== */
+
+#drop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-section) var(--s-lg);
+  text-align: center;
+  background: var(--canvas-parchment);
+}
+
+#drop h1 {
+  margin: 0 0 var(--s-sm);
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1.07;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+#drop .tag {
+  font-family: var(--font-text);
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.19;
+  letter-spacing: 0.011em;
+  color: var(--ink);
+  max-width: 680px;
+  margin-bottom: var(--s-xxl);
+}
+
+/* The drop zone is a label-button. Renders as a tall airy panel with the
+   blue-pill CTA visually nested inside it. */
+#drop .zone {
+  width: min(720px, 100%);
+  background: transparent;
+  border-radius: var(--r-lg);
+  padding: var(--s-xxl) var(--s-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+#drop .zone.over { transform: scale(1.01); }
+
+#drop .zone .ico {
+  display: none; /* Apple-style hero doesn't use an emoji icon */
+}
+#drop .zone .big {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.022em;
+  padding: 12px 22px;
+  border-radius: var(--r-pill);
+  transition: transform 120ms ease, background 120ms ease;
+}
+#drop .zone:active .big { transform: scale(0.95); }
+#drop .zone .big::before {
+  content: "Choose video";
+}
+#drop .zone .big > * { display: none; } /* hide original "Drop your DJI .MP4 here" copy in favor of CTA */
+
+#drop .zone .sub {
+  margin-top: var(--s-md);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  color: var(--ink-muted-48);
+  max-width: 520px;
+}
+
+#drop .files {
+  margin-top: var(--s-lg);
+  display: flex;
+  gap: var(--s-xs);
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 24px;
+}
+#drop .files .pill {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+#drop .err {
+  color: var(--ink-muted-48);
+  margin-top: var(--s-md);
+  font-size: 14px;
+  letter-spacing: -0.016em;
+  min-height: 18px;
+  max-width: 640px;
+}
+#drop .err.busy {
+  color: var(--primary);
+  font-weight: 600;
+}
+#drop .err.busy::before { content: '' }   /* drop the hourglass — Apple keeps it text */
+
+#drop .help {
+  margin-top: var(--s-xxl);
+  max-width: 640px;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+}
+#drop .help b { color: var(--ink); font-weight: 600; }
+#drop .help code {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+#drop .priv {
+  margin-top: var(--s-md);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+}
+#drop .priv .lock { color: var(--ink-muted-48); }
+
+#drop .credit {
+  position: fixed;
+  bottom: 16px;
+  right: 18px;
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  transition: color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+#drop .credit:hover { color: var(--primary); border-color: var(--primary); }
+#drop .credit:active { transform: scale(0.95); }
+
+/* ============================================================================
+   Viewer chassis
+   A two-row nav (global black + frosted sub-nav), the three-pane viewing area,
+   and a frosted floating control bar.
+   ========================================================================== */
+
+.app {
+  display: none;
+  grid-template-rows: var(--nav-global-h) 1fr var(--footer-h);
+  height: 100vh;
+  background: var(--canvas-parchment);
+}
+.app.active { display: grid; }
+
+/* --- Global nav (true black, 44px, utility links and CTAs) --- */
+header {
+  height: var(--nav-global-h);
+  padding: 0 var(--s-md);
+  background: var(--surface-black);
+  color: var(--on-dark);
+  display: flex;
+  align-items: center;
+  gap: var(--s-md);
+  border-bottom: 0;
+}
+header h1 {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--on-dark);
+  opacity: 0.92;
+}
+header .meta {
+  flex: 1;
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--on-dark-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+header #reload {
+  background: var(--ink);
+  color: var(--on-dark);
+  border: 1px solid rgba(255,255,255,0.12);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  padding: 5px 14px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+}
+header #reload:hover { background: #2a2a2c; }
+header #reload:active { transform: scale(0.95); }
+
+/* --- Three-pane viewing area --- */
+.views {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1px;
+  background: var(--hairline);    /* gap shows as a thin hairline */
+  overflow: hidden;
+  min-height: 0;
+}
+.left  { background: var(--surface-black); position: relative; min-height: 0; }
+.right {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--hairline);
+  min-height: 0;
+}
+.view { position: relative; min-height: 0; }
+.view:first-child  { background: var(--canvas); }            /* light tile (map) */
+.view:last-child   { background: var(--surface-tile-1); }    /* dark tile (3D)  */
+
+#video { width: 100%; height: 100%; object-fit: contain; background: var(--surface-black); display: block; }
+#map, #scene { width: 100%; height: 100%; display: block; }
+
+/* Pane labels — quiet caption-strong, never compete with content */
+.label {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 5;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted-48);
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+}
+.left .label,
+.view:last-child .label {  /* labels on dark surfaces */
+  color: var(--on-dark-muted);
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* HUD on the video tile — frosted gradient, white headers in primary-on-dark */
+.hud {
+  position: absolute;
+  inset: 0 0 auto 0;
+  padding: 12px 16px;
+  background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0));
+  color: var(--on-dark);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 5;
+}
+.hud .kv { margin: 0 8px; }
+.hud .kv b {
+  color: var(--primary-on-dark);
+  margin-right: 4px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+/* Telemetry panel — frosted card on the dark 3D tile */
+.telemetry {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 5;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-family: var(--font-text);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  color: var(--on-dark);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 10px 14px;
+  pointer-events: none;
+}
+.tel-row { display: flex; flex-direction: column; line-height: 1.15; }
+.tel-row .k {
+  color: var(--on-dark-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.tel-row .v {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--on-dark);
+  letter-spacing: -0.016em;
+}
+
+/* 3D camera-mode toggle — Apple-blue pill, top-right of dark tile */
+#cam-mode {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 6;
+  background: rgba(255,255,255,0.14);
+  color: var(--on-dark);
+  border: 1px solid rgba(255,255,255,0.16);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  transition: transform 120ms ease, background 120ms ease;
+}
+#cam-mode:hover { background: rgba(255,255,255,0.20); }
+#cam-mode:active { transform: scale(0.95); }
+#cam-mode.is-follow,
+#cam-mode[style*="accent"] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ============================================================================
+   Footer — frosted floating control bar (Apple's sticky-bar pattern)
+   ========================================================================== */
+footer {
+  height: var(--footer-h);
+  padding: 0 var(--s-md);
+  background: rgba(245,245,247,0.84);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--divider-soft);
+  display: flex;
+  align-items: center;
+  gap: var(--s-md);
+}
+
+/* Buttons — Apple grammar */
+button {
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: var(--r-sm);
+  transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+}
+button:focus-visible { outline: 2px solid var(--primary-focus); outline-offset: 2px; }
+button:active { transform: scale(0.95); }
+
+/* Primary blue pill */
+button.primary,
+#play {
+  background: var(--primary);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 400;
+  padding: 9px 22px;
+  border-radius: var(--r-pill);
+  line-height: 1;
+}
+button.primary:hover,
+#play:hover { filter: brightness(1.05); }
+
+/* Reset is a quiet utility — small ghost rect */
+#reset {
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  font-size: 14px;
+}
+#reset:hover { border-color: var(--ink-muted-48); }
+
+/* Time label */
+.time {
+  font-family: var(--font-text);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+  min-width: 96px;
+  text-align: center;
+}
+
+/* Scrubber — flat, blue accent */
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(0,0,0,0.10);
+  border-radius: var(--r-pill);
+  outline: none;
+  min-width: 160px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px; height: 14px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+/* Speed selector — segmented capsule (single-row pill row) */
+.speed {
+  display: flex;
+  gap: 0;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 2px;
+}
+.speed button {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+}
+.speed button:hover { color: var(--primary); }
+.speed button.active {
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+/* ============================================================================
+   Responsive — collapse to single column at tablet portrait and below
+   ========================================================================== */
+@media (max-width: 900px) {
+  .views { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .right { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+}
+@media (max-width: 640px) {
+  #drop h1  { font-size: 34px; line-height: 1.1; }
+  #drop .tag { font-size: 17px; }
+  .right { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  header { padding: 0 12px; gap: 8px; }
+  header h1 { display: none; }
+  footer { gap: 8px; padding: 0 10px; }
+  .speed button { padding: 4px 8px; min-width: 32px; }
+}

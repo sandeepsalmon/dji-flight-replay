@@ -1,0 +1,2135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DJI Flight Replay</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+/* ============================================================================
+   DJI Flight Replay — Apple-style design system
+   Tokens follow the spec: SF Pro stack, single blue accent, parchment rhythm,
+   pill CTA grammar, single product-shadow reserved for video imagery.
+   ========================================================================== */
+
+:root {
+  /* Brand & accent (one blue, no second color) */
+  --primary:        #0066cc;
+  --primary-focus:  #0071e3;
+  --primary-on-dark:#2997ff;
+
+  /* Surface */
+  --canvas:           #ffffff;
+  --canvas-parchment: #f5f5f7;
+  --surface-pearl:    #fafafc;
+  --surface-tile-1:   #272729;
+  --surface-tile-2:   #2a2a2c;
+  --surface-tile-3:   #252527;
+  --surface-black:    #000000;
+  --surface-chip:     rgba(210,210,215,0.64);
+
+  /* Text */
+  --ink:           #1d1d1f;
+  --on-dark:       #ffffff;
+  --on-dark-muted: #cccccc;
+  --ink-muted-80:  #333333;
+  --ink-muted-48:  #7a7a7a;
+
+  /* Lines */
+  --hairline:     #e0e0e0;
+  --divider-soft: rgba(0,0,0,0.04);
+
+  /* Typography */
+  --font-display: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-text:    "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Radius */
+  --r-sm:  8px;
+  --r-md:  11px;
+  --r-lg:  18px;
+  --r-pill: 9999px;
+
+  /* Shadow — exactly one in the system, only on photographic surfaces */
+  --shadow-product: rgba(0,0,0,0.22) 3px 5px 30px;
+
+  /* Spacing (4-base, structural snaps to 8/12/16/20/24) */
+  --s-xxs: 4px;
+  --s-xs:  8px;
+  --s-sm:  12px;
+  --s-md:  17px;
+  --s-lg:  24px;
+  --s-xl:  32px;
+  --s-xxl: 48px;
+  --s-section: 80px;
+
+  /* Nav heights */
+  --nav-global-h: 44px;
+  --nav-sub-h:    52px;
+  --footer-h:     64px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--canvas-parchment);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Universal text-link */
+a, .text-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+a:hover, .text-link:hover { text-decoration: underline; }
+
+/* ============================================================================
+   Drop / landing tile
+   The first surface — full-bleed parchment hero with a 56px display headline
+   and a single blue pill CTA (a label wrapping the file input).
+   ========================================================================== */
+
+#drop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-section) var(--s-lg);
+  text-align: center;
+  background: var(--canvas-parchment);
+}
+
+#drop h1 {
+  margin: 0 0 var(--s-sm);
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1.07;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+#drop .tag {
+  font-family: var(--font-text);
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.19;
+  letter-spacing: 0.011em;
+  color: var(--ink);
+  max-width: 680px;
+  margin-bottom: var(--s-xxl);
+}
+
+/* The drop zone is a label-button. Renders as a tall airy panel with the
+   blue-pill CTA visually nested inside it. */
+#drop .zone {
+  width: min(720px, 100%);
+  background: transparent;
+  border-radius: var(--r-lg);
+  padding: var(--s-xxl) var(--s-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+#drop .zone.over { transform: scale(1.01); }
+
+#drop .zone .ico {
+  display: none; /* Apple-style hero doesn't use an emoji icon */
+}
+#drop .zone .big {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.022em;
+  padding: 12px 22px;
+  border-radius: var(--r-pill);
+  transition: transform 120ms ease, background 120ms ease;
+}
+#drop .zone:active .big { transform: scale(0.95); }
+#drop .zone .big::before {
+  content: "Choose video";
+}
+#drop .zone .big > * { display: none; } /* hide original "Drop your DJI .MP4 here" copy in favor of CTA */
+
+#drop .zone .sub {
+  margin-top: var(--s-md);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  color: var(--ink-muted-48);
+  max-width: 520px;
+}
+
+#drop .files {
+  margin-top: var(--s-lg);
+  display: flex;
+  gap: var(--s-xs);
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 24px;
+}
+#drop .files .pill {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+#drop .err {
+  color: var(--ink-muted-48);
+  margin-top: var(--s-md);
+  font-size: 14px;
+  letter-spacing: -0.016em;
+  min-height: 18px;
+  max-width: 640px;
+}
+#drop .err.busy {
+  color: var(--primary);
+  font-weight: 600;
+}
+#drop .err.busy::before { content: '' }   /* drop the hourglass — Apple keeps it text */
+
+#drop .help {
+  margin-top: var(--s-xxl);
+  max-width: 640px;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+}
+#drop .help b { color: var(--ink); font-weight: 600; }
+#drop .help code {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+#drop .priv {
+  margin-top: var(--s-md);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+}
+#drop .priv .lock { color: var(--ink-muted-48); }
+
+#drop .credit {
+  position: fixed;
+  bottom: 16px;
+  right: 18px;
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  transition: color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+#drop .credit:hover { color: var(--primary); border-color: var(--primary); }
+#drop .credit:active { transform: scale(0.95); }
+
+/* ============================================================================
+   Viewer chassis
+   A two-row nav (global black + frosted sub-nav), the three-pane viewing area,
+   and a frosted floating control bar.
+   ========================================================================== */
+
+.app {
+  display: none;
+  grid-template-rows: var(--nav-global-h) 1fr var(--footer-h);
+  height: 100vh;
+  background: var(--canvas-parchment);
+}
+.app.active { display: grid; }
+
+/* --- Global nav (true black, 44px, utility links and CTAs) --- */
+header {
+  height: var(--nav-global-h);
+  padding: 0 var(--s-md);
+  background: var(--surface-black);
+  color: var(--on-dark);
+  display: flex;
+  align-items: center;
+  gap: var(--s-md);
+  border-bottom: 0;
+}
+header h1 {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--on-dark);
+  opacity: 0.92;
+}
+header .meta {
+  flex: 1;
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--on-dark-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+header #reload {
+  background: var(--ink);
+  color: var(--on-dark);
+  border: 1px solid rgba(255,255,255,0.12);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  padding: 5px 14px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+}
+header #reload:hover { background: #2a2a2c; }
+header #reload:active { transform: scale(0.95); }
+
+/* --- Three-pane viewing area --- */
+.views {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1px;
+  background: var(--hairline);    /* gap shows as a thin hairline */
+  overflow: hidden;
+  min-height: 0;
+}
+.left  { background: var(--surface-black); position: relative; min-height: 0; }
+.right {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--hairline);
+  min-height: 0;
+}
+.view { position: relative; min-height: 0; }
+.view:first-child  { background: var(--canvas); }            /* light tile (map) */
+.view:last-child   { background: var(--surface-tile-1); }    /* dark tile (3D)  */
+
+#video { width: 100%; height: 100%; object-fit: contain; background: var(--surface-black); display: block; }
+#map, #scene { width: 100%; height: 100%; display: block; }
+
+/* Pane labels — quiet caption-strong, never compete with content */
+.label {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 5;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted-48);
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+}
+.left .label,
+.view:last-child .label {  /* labels on dark surfaces */
+  color: var(--on-dark-muted);
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* HUD on the video tile — frosted gradient, white headers in primary-on-dark */
+.hud {
+  position: absolute;
+  inset: 0 0 auto 0;
+  padding: 12px 16px;
+  background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0));
+  color: var(--on-dark);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 5;
+}
+.hud .kv { margin: 0 8px; }
+.hud .kv b {
+  color: var(--primary-on-dark);
+  margin-right: 4px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+/* Telemetry panel — frosted card on the dark 3D tile */
+.telemetry {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 5;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-family: var(--font-text);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  color: var(--on-dark);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 10px 14px;
+  pointer-events: none;
+}
+.tel-row { display: flex; flex-direction: column; line-height: 1.15; }
+.tel-row .k {
+  color: var(--on-dark-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.tel-row .v {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--on-dark);
+  letter-spacing: -0.016em;
+}
+
+/* 3D camera-mode toggle — Apple-blue pill, top-right of dark tile */
+#cam-mode {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 6;
+  background: rgba(255,255,255,0.14);
+  color: var(--on-dark);
+  border: 1px solid rgba(255,255,255,0.16);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  transition: transform 120ms ease, background 120ms ease;
+}
+#cam-mode:hover { background: rgba(255,255,255,0.20); }
+#cam-mode:active { transform: scale(0.95); }
+#cam-mode.is-follow,
+#cam-mode[style*="accent"] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ============================================================================
+   Footer — frosted floating control bar (Apple's sticky-bar pattern)
+   ========================================================================== */
+footer {
+  height: var(--footer-h);
+  padding: 0 var(--s-md);
+  background: rgba(245,245,247,0.84);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--divider-soft);
+  display: flex;
+  align-items: center;
+  gap: var(--s-md);
+}
+
+/* Buttons — Apple grammar */
+button {
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: var(--r-sm);
+  transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+}
+button:focus-visible { outline: 2px solid var(--primary-focus); outline-offset: 2px; }
+button:active { transform: scale(0.95); }
+
+/* Primary blue pill */
+button.primary,
+#play {
+  background: var(--primary);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 400;
+  padding: 9px 22px;
+  border-radius: var(--r-pill);
+  line-height: 1;
+}
+button.primary:hover,
+#play:hover { filter: brightness(1.05); }
+
+/* Reset is a quiet utility — small ghost rect */
+#reset {
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  font-size: 14px;
+}
+#reset:hover { border-color: var(--ink-muted-48); }
+
+/* Time label */
+.time {
+  font-family: var(--font-text);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted-48);
+  min-width: 96px;
+  text-align: center;
+}
+
+/* Scrubber — flat, blue accent */
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(0,0,0,0.10);
+  border-radius: var(--r-pill);
+  outline: none;
+  min-width: 160px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px; height: 14px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+/* Speed selector — segmented capsule (single-row pill row) */
+.speed {
+  display: flex;
+  gap: 0;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 2px;
+}
+.speed button {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+}
+.speed button:hover { color: var(--primary); }
+.speed button.active {
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+/* ============================================================================
+   Responsive — collapse to single column at tablet portrait and below
+   ========================================================================== */
+@media (max-width: 900px) {
+  .views { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .right { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+}
+@media (max-width: 640px) {
+  #drop h1  { font-size: 34px; line-height: 1.1; }
+  #drop .tag { font-size: 17px; }
+  .right { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  header { padding: 0 12px; gap: 8px; }
+  header h1 { display: none; }
+  footer { gap: 8px; padding: 0 10px; }
+  .speed button { padding: 4px 8px; min-width: 32px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- Drop / landing state -->
+<div id="drop">
+  <h1>Fly it again.</h1>
+  <div class="tag">Drop a DJI video. The flight plays back across the original footage, a satellite map, and a 3D chase camera, all in sync.</div>
+
+  <label class="zone" id="zone">
+    <span class="big"></span>
+    <input id="file-input" type="file" accept=".mp4,.mov,.m4v,.lrf,.srt" multiple style="display:none">
+    <div class="sub">Pick a .MP4, .MOV, or .LRF. If the flight was split into parts, select all of them at once.</div>
+  </label>
+
+  <div class="files" id="file-list"></div>
+  <div class="err" id="err"></div>
+
+  <div class="help">
+    <p>Older drone or no telemetry in the file? Drop the matching <code>.SRT</code> next to the video (DJI Fly → gear → Camera → turn on <b>Video Subtitles</b>), or run <code>python3 scripts/extract_srt.py path/to/folder</code> once.</p>
+  </div>
+
+  <div class="priv">Files stay on your machine. The page is static. Nothing gets uploaded.</div>
+
+  <a class="credit" id="credit" href="https://github.com/sandeep-docket/dji-flight-replay" target="_blank" rel="noopener">Made by @sandeep</a>
+</div>
+
+<!-- Viewer state -->
+<div class="app" id="app">
+  <header>
+    <h1>DJI Flight Replay</h1>
+    <span class="meta" id="meta"></span>
+    <button id="reload">Load another flight</button>
+  </header>
+  <div class="views">
+    <div class="left">
+      <div class="label">Video</div>
+      <div class="hud" id="hud"></div>
+      <video id="video" preload="auto" playsinline controls></video>
+    </div>
+    <div class="right">
+      <div class="view">
+        <div class="label">2D · Map</div>
+        <div id="map"></div>
+      </div>
+      <div class="view">
+        <div class="label">3D · Scene</div>
+        <canvas id="scene"></canvas>
+        <button id="cam-mode">Free</button>
+        <div class="telemetry" id="tel"></div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <button id="play" class="primary">Play</button>
+    <button id="reset">Restart</button>
+    <span class="time" id="time">00:00 / 00:00</span>
+    <input type="range" id="scrub" min="0" max="10000" value="0" step="1">
+    <div class="speed" id="speed">
+      <button data-s="0.25">0.25×</button>
+      <button data-s="0.5">0.5×</button>
+      <button data-s="1" class="active">1×</button>
+      <button data-s="2">2×</button>
+      <button data-s="4">4×</button>
+      <button data-s="8">8×</button>
+    </div>
+  </footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+// ===== srt.js =====
+// DJI SRT telemetry parser.
+//
+// DJI Fly produces a sidecar .SRT subtitle file alongside the recorded MP4 when
+// "Video Subtitles" is enabled. The file has gone through several formats over
+// the years; this parser auto-detects and handles the major ones used by all
+// current DJI consumer drones (Mini, Air, Mavic, Avata, Phantom).
+//
+// Output: array of { t, lat, lon, alt, alt_rel, yaw, pitch, roll,
+//                    g_pitch, g_yaw, g_roll, iso, shutter, fnum, ... }
+// where t is seconds from start of video.
+
+const TIMECODE_RE = /^(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})/;
+
+function timecodeToSec(h, m, s, ms) {
+  return Number(h) * 3600 + Number(m) * 60 + Number(s) + Number(ms) / 1000;
+}
+
+function stripTags(s) {
+  return s.replace(/<[^>]+>/g, '');
+}
+
+// --- Format A: bracketed key/value (Mini 4 Pro, Mavic 3, Air 3, recent fw) ---
+// Examples:
+//   [iso: 100] [shutter: 1/100.0] [fnum: 280] [ev: 0]
+//   [latitude: 10.003490] [longitude: 76.360330]
+//   [rel_alt: 12.5 abs_alt: 22.0]
+//   [drone_speed: 0.000] [gb_yaw: 0.0 gb_pitch: 0.0 gb_roll: 0.0]
+//
+// Also seen: "GPS: (lon, lat, alt)" inside brackets on some firmwares.
+function parseBracketed(body) {
+  const out = {};
+  // Find every [...] group, then split inner text into "key: value" pairs.
+  const groups = body.match(/\[([^\]]+)\]/g);
+  if (!groups) return null;
+  for (const g of groups) {
+    const inner = g.slice(1, -1);
+    // Split on whitespace before a "word:"; supports "rel_alt: 1 abs_alt: 2"
+    const parts = inner.split(/(?=\s[a-z_]+\s*:)/i).map(s => s.trim()).filter(Boolean);
+    for (const p of parts) {
+      const colon = p.indexOf(':');
+      if (colon < 0) continue;
+      const key = p.slice(0, colon).trim().toLowerCase();
+      const val = p.slice(colon + 1).trim();
+      out[key] = val;
+    }
+  }
+  if (Object.keys(out).length === 0) return null;
+  return out;
+}
+
+function recordFromBracketed(kv) {
+  const r = {};
+  const num = (k) => kv[k] !== undefined ? Number(kv[k]) : undefined;
+  // Some firmwares store latitude as integer*1e7 — detect by magnitude.
+  let lat = num('latitude');
+  let lon = num('longitude');
+  if (lat !== undefined && Math.abs(lat) > 180) lat = lat / 1e7;
+  if (lon !== undefined && Math.abs(lon) > 180) lon = lon / 1e7;
+  if (lat !== undefined && !Number.isNaN(lat)) r.lat = lat;
+  if (lon !== undefined && !Number.isNaN(lon)) r.lon = lon;
+  // GPS triple inside one bracket: "GPS: -122.4194,37.7749,42"
+  if (r.lat === undefined && kv.gps) {
+    const m = kv.gps.match(/\(?\s*(-?[0-9.]+)\s*[,;]\s*(-?[0-9.]+)\s*[,;]\s*(-?[0-9.]+)\s*\)?/);
+    if (m) { r.lon = +m[1]; r.lat = +m[2]; r.alt = +m[3]; }
+  }
+  if (kv.abs_alt !== undefined) r.alt = +kv.abs_alt;
+  if (kv.rel_alt !== undefined) r.alt_rel = +kv.rel_alt;
+  if (kv.altitude !== undefined && r.alt === undefined) r.alt = +kv.altitude;
+  if (kv.height !== undefined && r.alt_rel === undefined) r.alt_rel = +kv.height;
+  // Drone yaw/pitch/roll — DJI uses both "yaw"/"pitch"/"roll" and
+  // "drone_yaw"/etc. across firmwares.
+  for (const [src, dst] of [
+    ['yaw', 'yaw'], ['pitch', 'pitch'], ['roll', 'roll'],
+    ['drone_yaw', 'yaw'], ['drone_pitch', 'pitch'], ['drone_roll', 'roll'],
+    ['gb_yaw', 'g_yaw'], ['gb_pitch', 'g_pitch'], ['gb_roll', 'g_roll'],
+    ['gimbal_yaw', 'g_yaw'], ['gimbal_pitch', 'g_pitch'], ['gimbal_roll', 'g_roll'],
+  ]) {
+    if (kv[src] !== undefined && r[dst] === undefined) {
+      const v = Number(kv[src]);
+      if (!Number.isNaN(v)) r[dst] = v;
+    }
+  }
+  if (kv.iso !== undefined) r.iso = parseInt(kv.iso, 10);
+  if (kv.shutter !== undefined) r.shutter = kv.shutter;
+  if (kv.fnum !== undefined) {
+    // DJI bracketed format reports f-number as int *100: 280 → f/2.8
+    const f = Number(kv.fnum);
+    r.fnum = f >= 50 ? f / 100 : f;
+  } else if (kv.f_number !== undefined) {
+    r.fnum = Number(kv.f_number);
+  }
+  if (kv.ev !== undefined) r.ev = Number(kv.ev);
+  if (kv.ct !== undefined) r.cct = parseInt(kv.ct, 10);
+  if (kv.color_md !== undefined) r.color_md = kv.color_md;
+  if (kv.focal_len !== undefined) r.focal = Number(kv.focal_len);
+  if (kv.drone_speed !== undefined) r.speed = Number(kv.drone_speed);
+  return r;
+}
+
+// --- Format B: compact CSV (older Mini, Mavic 2 Pro / Zoom, Spark) ---
+// Example:
+//   F/2.8, SS 1/100, ISO 100, EV 0, GPS (76.36033, 10.00349, 22), D 5.43m,
+//   H 12.5m, H.S 0.0m/s, V.S 0.0m/s
+//
+// Note GPS ordering is (longitude, latitude, satellites?) on the original
+// Mavic 2 export, but (longitude, latitude, altitude) on others. We assume
+// the third value is altitude when it's > 5 — small ints are satellite count.
+function recordFromCSV(body) {
+  const r = {};
+  // F/2.8 or F2.8
+  let m = body.match(/F\/?\s*([0-9.]+)/i);
+  if (m) r.fnum = Number(m[1]);
+  m = body.match(/SS\s+([0-9./]+)/i);
+  if (m) r.shutter = m[1];
+  m = body.match(/ISO\s+(\d+)/i);
+  if (m) r.iso = parseInt(m[1], 10);
+  m = body.match(/EV\s+([+-]?[0-9.]+)/i);
+  if (m) r.ev = Number(m[1]);
+  m = body.match(/GPS\s*\(?\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\)?/i);
+  if (m) {
+    const a = +m[1], b = +m[2], c = +m[3];
+    r.lon = a; r.lat = b;
+    if (Math.abs(c) > 5) r.alt = c;
+  }
+  m = body.match(/H\s+([-0-9.]+)\s*m\b/i);
+  if (m) r.alt_rel = Number(m[1]);
+  m = body.match(/H\.S\s+([-0-9.]+)\s*m\/s/i);
+  if (m) r.speed_h = Number(m[1]);
+  m = body.match(/V\.S\s+([-0-9.]+)\s*m\/s/i);
+  if (m) r.speed_v = Number(m[1]);
+  return Object.keys(r).length ? r : null;
+}
+
+// --- Public API ---
+//
+// parse(text) → array of telemetry records, each with { t, ... }, sorted by t.
+// Throws on completely unrecognised input. Empty / GPS-less input returns []
+// without throwing — caller should check for length.
+function parseSRT(text) {
+  // Normalise newlines and strip BOM
+  text = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = text.split(/\n\n+/);
+  const records = [];
+  let format = null; // 'bracketed' | 'csv'
+  for (const block of blocks) {
+    const lines = block.split('\n').filter(Boolean);
+    if (lines.length < 2) continue;
+    // Locate timecode line (sometimes line 0, sometimes line 1 if cue index present)
+    let tcLine = -1;
+    for (let i = 0; i < Math.min(lines.length, 3); i++) {
+      if (TIMECODE_RE.test(lines[i])) { tcLine = i; break; }
+    }
+    if (tcLine < 0) continue;
+    const tc = lines[tcLine].match(TIMECODE_RE);
+    const t = timecodeToSec(tc[1], tc[2], tc[3], tc[4]);
+    const body = stripTags(lines.slice(tcLine + 1).join(' ')).trim();
+    if (!body) continue;
+    let rec = null;
+    if (format === 'bracketed' || (format === null && body.includes('['))) {
+      const kv = parseBracketed(body);
+      if (kv) {
+        rec = recordFromBracketed(kv);
+        format = 'bracketed';
+      }
+    }
+    if (!rec) {
+      rec = recordFromCSV(body);
+      if (rec && format === null) format = 'csv';
+    }
+    if (!rec) continue;
+    rec.t = t;
+    records.push(rec);
+  }
+  records.sort((a, b) => a.t - b.t);
+
+  // Forward-fill GPS / altitude for early frames before lock
+  const last = {};
+  for (const r of records) {
+    for (const k of ['lat', 'lon', 'alt', 'alt_rel']) {
+      if (r[k] !== undefined && Number.isFinite(r[k])) last[k] = r[k];
+      else if (last[k] !== undefined) r[k] = last[k];
+    }
+  }
+  return records;
+}
+
+// ===== mp4.js =====
+// Minimal MP4 (ISO BMFF) parser. Just enough to locate the `djmd` metadata
+// track in a DJI MP4 and return a list of {offset, size, time} pointers into
+// the file so the protobuf extractor can read each sample.
+//
+// We never load the whole file — only the box headers we need (a few KB) and
+// the moov atom (typically a few hundred KB even for hour-long recordings).
+
+const TEXT = new TextDecoder('latin1');
+
+function fourcc(arr, off) { return TEXT.decode(arr.subarray(off, off + 4)); }
+
+class Reader {
+  constructor(buf) { this.buf = buf; this.dv = new DataView(buf); this.p = 0; }
+  get end() { return this.buf.byteLength; }
+  read(n) { const r = new Uint8Array(this.buf, this.p, n); this.p += n; return r; }
+  u8()    { return this.dv.getUint8(this.p++); }
+  u16()   { const v = this.dv.getUint16(this.p);  this.p += 2; return v; }
+  u24()   { const v = (this.dv.getUint16(this.p) << 8) | this.dv.getUint8(this.p + 2); this.p += 3; return v; }
+  u32()   { const v = this.dv.getUint32(this.p);  this.p += 4; return v; }
+  u64()   {
+    const hi = this.dv.getUint32(this.p);
+    const lo = this.dv.getUint32(this.p + 4);
+    this.p += 8;
+    // Number is fine for values < 2^53; MP4 sizes/offsets never exceed that.
+    return hi * 0x100000000 + lo;
+  }
+  s32()   { const v = this.dv.getInt32(this.p); this.p += 4; return v; }
+  fourcc() { const s = TEXT.decode(this.read(4)); return s; }
+  skip(n) { this.p += n; }
+}
+
+// Read top-level boxes from the File until we find moov. We do this by
+// streaming 8-byte (or 16-byte) headers and seeking via File.slice() — most
+// of the file is one giant `mdat` we want to skip without reading.
+async function findMoov(file) {
+  let pos = 0;
+  while (pos < file.size) {
+    const hdrEnd = Math.min(pos + 16, file.size);
+    const hdrBuf = await file.slice(pos, hdrEnd).arrayBuffer();
+    const hdr = new Uint8Array(hdrBuf);
+    if (hdr.byteLength < 8) throw new Error('Unexpected EOF reading box header');
+    const dv = new DataView(hdrBuf);
+    let size = dv.getUint32(0);
+    const type = fourcc(hdr, 4);
+    let headerLen = 8;
+    if (size === 1) {
+      // 64-bit largesize
+      const hi = dv.getUint32(8);
+      const lo = dv.getUint32(12);
+      size = hi * 0x100000000 + lo;
+      headerLen = 16;
+    } else if (size === 0) {
+      size = file.size - pos;
+    }
+    if (type === 'moov') {
+      const moov = await file.slice(pos, pos + size).arrayBuffer();
+      return { offset: pos, size, headerLen, data: moov };
+    }
+    pos += size;
+  }
+  throw new Error('moov atom not found');
+}
+
+// Walk every box recursively under a given parent buffer (bytes between
+// `start` and `end`), yielding {type, start, end, payloadStart}. Container
+// boxes (with sub-boxes) include a payload that itself contains boxes.
+function* iterBoxes(buf, start, end) {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  let p = start;
+  while (p + 8 <= end) {
+    let size = dv.getUint32(p);
+    const type = fourcc(u8, p + 4);
+    let headerLen = 8;
+    if (size === 1) {
+      const hi = dv.getUint32(p + 8), lo = dv.getUint32(p + 12);
+      size = hi * 0x100000000 + lo;
+      headerLen = 16;
+    } else if (size === 0) {
+      size = end - p;
+    }
+    yield { type, start: p, end: p + size, payloadStart: p + headerLen };
+    p += size;
+  }
+}
+
+// Container-box types. Boxes whose payload is a sequence of child boxes.
+const CONTAINERS = new Set(['moov','trak','mdia','minf','stbl','dinf','udta','edts','mvex']);
+
+// Build a tree of boxes for easy lookup.
+function parseTree(buf, start, end) {
+  const node = { children: [], byType: new Map() };
+  for (const box of iterBoxes(buf, start, end)) {
+    const child = { ...box, ...((CONTAINERS.has(box.type) ? parseTree(buf, box.payloadStart, box.end) : { children: [], byType: new Map() })) };
+    node.children.push(child);
+    if (!node.byType.has(box.type)) node.byType.set(box.type, []);
+    node.byType.get(box.type).push(child);
+  }
+  return node;
+}
+
+function get(node, ...types) {
+  let cur = node;
+  for (const t of types) {
+    const arr = cur.byType.get(t);
+    if (!arr || arr.length === 0) return null;
+    cur = arr[0];
+  }
+  return cur;
+}
+
+// Parse the boxes we need (stsd, stsz, stco/co64, stsc, stts, mdhd) for a
+// given trak. Returns the per-sample (offset, size, time_seconds) tuples and
+// the codec tag (so caller can confirm 'djmd').
+function parseSampleTable(buf, trak) {
+  const dv = new DataView(buf);
+  const mdia = get(trak, 'mdia'); if (!mdia) return null;
+  const mdhd = get(mdia, 'mdhd'); if (!mdhd) return null;
+  const minf = get(mdia, 'minf'); if (!minf) return null;
+  const stbl = get(minf, 'stbl'); if (!stbl) return null;
+  const stsd = get(stbl, 'stsd');
+  const stsz = get(stbl, 'stsz');
+  const stco = get(stbl, 'stco') || get(stbl, 'co64');
+  const stsc = get(stbl, 'stsc');
+  const stts = get(stbl, 'stts');
+  if (!stsd || !stsz || !stco || !stsc || !stts) return null;
+
+  // mdhd: timescale at offset depending on version
+  const mdhdVer = dv.getUint8(mdhd.payloadStart);
+  const tsOff = mdhd.payloadStart + (mdhdVer === 1 ? 4 + 8 + 8 : 4 + 4 + 4);
+  const timescale = dv.getUint32(tsOff);
+
+  // stsd: ver+flags(4), entry_count(4), then entries. First entry: size(4) + format(4)
+  const stsdEntries = dv.getUint32(stsd.payloadStart + 4);
+  let codecTag = '';
+  if (stsdEntries > 0) {
+    const entryStart = stsd.payloadStart + 8;
+    codecTag = fourcc(new Uint8Array(buf), entryStart + 4);
+  }
+
+  // stsz: ver+flags(4), sample_size(4), sample_count(4), [entries(4) each]
+  const stszVF = dv.getUint32(stsz.payloadStart);
+  void stszVF;
+  const sampleSize = dv.getUint32(stsz.payloadStart + 4);
+  const sampleCount = dv.getUint32(stsz.payloadStart + 8);
+  const sizes = new Array(sampleCount);
+  if (sampleSize !== 0) {
+    sizes.fill(sampleSize);
+  } else {
+    let p = stsz.payloadStart + 12;
+    for (let i = 0; i < sampleCount; i++) { sizes[i] = dv.getUint32(p); p += 4; }
+  }
+
+  // stco/co64
+  const isCo64 = stco.type === 'co64';
+  const chunkCount = dv.getUint32(stco.payloadStart + 4);
+  const chunkOffsets = new Array(chunkCount);
+  {
+    let p = stco.payloadStart + 8;
+    for (let i = 0; i < chunkCount; i++) {
+      if (isCo64) {
+        const hi = dv.getUint32(p), lo = dv.getUint32(p + 4);
+        chunkOffsets[i] = hi * 0x100000000 + lo;
+        p += 8;
+      } else {
+        chunkOffsets[i] = dv.getUint32(p);
+        p += 4;
+      }
+    }
+  }
+
+  // stsc: entries of (first_chunk, samples_per_chunk, sample_desc_index)
+  const stscCount = dv.getUint32(stsc.payloadStart + 4);
+  const stscEntries = new Array(stscCount);
+  {
+    let p = stsc.payloadStart + 8;
+    for (let i = 0; i < stscCount; i++) {
+      stscEntries[i] = {
+        firstChunk: dv.getUint32(p),
+        samplesPerChunk: dv.getUint32(p + 4),
+      };
+      p += 12;
+    }
+  }
+  // Expand to per-chunk samples-per-chunk
+  const samplesPerChunk = new Array(chunkCount);
+  for (let i = 0; i < stscCount; i++) {
+    const cur = stscEntries[i];
+    const nextFirst = i + 1 < stscCount ? stscEntries[i + 1].firstChunk : chunkCount + 1;
+    for (let c = cur.firstChunk; c < nextFirst; c++) samplesPerChunk[c - 1] = cur.samplesPerChunk;
+  }
+
+  // Compute per-sample offsets
+  const offsets = new Array(sampleCount);
+  let si = 0;
+  for (let ci = 0; ci < chunkCount && si < sampleCount; ci++) {
+    let off = chunkOffsets[ci];
+    const spc = samplesPerChunk[ci] || 0;
+    for (let j = 0; j < spc && si < sampleCount; j++) {
+      offsets[si] = off;
+      off += sizes[si];
+      si++;
+    }
+  }
+
+  // stts: ver+flags(4), entry_count(4), entries(sample_count(4), sample_delta(4))
+  const sttsCount = dv.getUint32(stts.payloadStart + 4);
+  const times = new Array(sampleCount);
+  let acc = 0, ti = 0;
+  let pp = stts.payloadStart + 8;
+  for (let i = 0; i < sttsCount; i++) {
+    const cnt = dv.getUint32(pp);
+    const dt = dv.getUint32(pp + 4);
+    pp += 8;
+    for (let j = 0; j < cnt && ti < sampleCount; j++) {
+      times[ti++] = acc / timescale;
+      acc += dt;
+    }
+  }
+
+  return { codecTag, sizes, offsets, times, timescale, sampleCount };
+}
+
+// Public: given a File handle to a DJI MP4, return a parsed handle that
+// contains the djmd track sample table. Throws if no djmd track found.
+async function openDJI(file) {
+  const moov = await findMoov(file);
+  const tree = parseTree(moov.data, 8, moov.size);
+  const traks = tree.byType.get('trak') || [];
+  let djmd = null;
+  let dbgi = null;
+  for (const trak of traks) {
+    const tab = parseSampleTable(moov.data, trak);
+    if (!tab) continue;
+    if (tab.codecTag === 'djmd') djmd = tab;
+    else if (tab.codecTag === 'dbgi') dbgi = tab;
+  }
+  if (!djmd && !dbgi) {
+    throw new Error('No DJI metadata track (djmd/dbgi) found in this MP4. Is this a DJI drone recording?');
+  }
+  return { file, djmd, dbgi };
+}
+
+// Read a single sample's bytes from the file.
+async function readSample(handle, track, idx) {
+  const tab = handle[track];
+  if (!tab) throw new Error(`No ${track} track`);
+  const off = tab.offsets[idx];
+  const sz = tab.sizes[idx];
+  const buf = await handle.file.slice(off, off + sz).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+// Read a contiguous range of samples in one IO. The samples don't have to be
+// contiguous on disk; we issue one slice() spanning min..max offsets and copy
+// out per-sample slices. Faster than per-sample slice() in browsers.
+async function readSampleRange(handle, track, fromIdx, toIdx) {
+  const tab = handle[track];
+  let minOff = Infinity, maxEnd = 0;
+  for (let i = fromIdx; i < toIdx; i++) {
+    const o = tab.offsets[i];
+    if (o < minOff) minOff = o;
+    if (o + tab.sizes[i] > maxEnd) maxEnd = o + tab.sizes[i];
+  }
+  if (!Number.isFinite(minOff)) return [];
+  const buf = await handle.file.slice(minOff, maxEnd).arrayBuffer();
+  const u = new Uint8Array(buf);
+  const out = new Array(toIdx - fromIdx);
+  for (let i = fromIdx; i < toIdx; i++) {
+    const off = tab.offsets[i] - minOff;
+    out[i - fromIdx] = u.subarray(off, off + tab.sizes[i]);
+  }
+  return out;
+}
+
+// ===== dji.js =====
+// DJI per-frame telemetry extractor.
+//
+// Operates on the `djmd` track samples that mp4.js exposes. Each sample is a
+// protobuf message with a known schema (per DJI model). The schema is shared
+// with — and reverse-engineered from — exiftool's DJI module, specifically:
+//
+//   djmd field path  3.3.4.1.2  → GPSLatitude   (double, radians)
+//                    3.3.4.1.3  → GPSLongitude  (double, radians)
+//                    3.3.4.1.1  → CoordinateUnits (1 = already in degrees)
+//                    3.3.4.2    → AbsoluteAltitude (int64 mm → /1000 = m)
+//                    3.3.5.1    → RelativeAltitude (float, /1000 = m)
+//                    3.3.3.1    → DroneRoll  (int64, /10 = degrees)
+//                    3.3.3.2    → DronePitch
+//                    3.3.3.3    → DroneYaw
+//                    3.4.3.1    → GimbalPitch
+//                    3.4.3.3    → GimbalYaw
+//                    3.2.7.1    → ISO         (float)
+//                    3.2.10.1   → ShutterSpeed (rational: 1/2 = numerator/denominator)
+//                    3.2.11.1   → FNumber      (rational)
+//                    3.2.32.1   → ColorTemperature (uint)
+//                    3.2.37.1   → Temperature  (float)
+//
+// These paths are identical for Mini 4 Pro, Mavic 3, Air 3, Phantom 4, etc.
+// — DJI keeps them stable across newer firmwares. Older drones (Mavic 1,
+// Spark) used different paths; for those the parser falls back to "no
+// in-MP4 telemetry" and the user should use scripts/extract_srt.py.
+// ---------- Protobuf reading ----------
+// We decode raw protobuf without a schema, then walk known field paths.
+
+function readVarint(buf, p) {
+  let v = 0n; let sh = 0n;
+  while (true) {
+    if (p >= buf.length) return [null, p];
+    const b = buf[p++];
+    v |= BigInt(b & 0x7f) << sh;
+    if ((b & 0x80) === 0) break;
+    sh += 7n;
+  }
+  return [v, p];
+}
+
+// Get the raw (wire-type, payload) of `targetField` in the message at
+// buf[start..end]. Skips other fields. Returns null if not found.
+function getField(buf, start, end, targetField) {
+  let p = start;
+  while (p < end) {
+    let key;
+    [key, p] = readVarint(buf, p);
+    if (key === null) return null;
+    const fn = Number(key >> 3n);
+    const wt = Number(key & 7n);
+    if (wt === 0) {
+      let v;
+      [v, p] = readVarint(buf, p);
+      if (v === null) return null;
+      if (fn === targetField) return { wt, varint: v, p };
+    } else if (wt === 1) {
+      if (p + 8 > end) return null;
+      if (fn === targetField) return { wt, bytes: buf.subarray(p, p + 8), p: p + 8 };
+      p += 8;
+    } else if (wt === 2) {
+      let ln;
+      [ln, p] = readVarint(buf, p);
+      if (ln === null) return null;
+      const ln_ = Number(ln);
+      if (p + ln_ > end) return null;
+      if (fn === targetField) return { wt, bytes: buf.subarray(p, p + ln_), p: p + ln_ };
+      p += ln_;
+    } else if (wt === 5) {
+      if (p + 4 > end) return null;
+      if (fn === targetField) return { wt, bytes: buf.subarray(p, p + 4), p: p + 4 };
+      p += 4;
+    } else {
+      return null;
+    }
+  }
+  return null;
+}
+
+// Walk a path of nested length-delimited fields to a leaf.
+function walkPath(buf, path) {
+  let cur = buf;
+  let start = 0, end = cur.length;
+  for (let i = 0; i < path.length - 1; i++) {
+    const f = getField(cur, start, end, path[i]);
+    if (!f || f.wt !== 2) return null;
+    cur = f.bytes;
+    start = 0; end = cur.length;
+  }
+  return getField(cur, start, end, path[path.length - 1]);
+}
+
+const _dv = new DataView(new ArrayBuffer(8));
+function asFloat(bytes) {
+  for (let i = 0; i < 4; i++) _dv.setUint8(i, bytes[i]);
+  return _dv.getFloat32(0, true);
+}
+function asDouble(bytes) {
+  for (let i = 0; i < 8; i++) _dv.setUint8(i, bytes[i]);
+  return _dv.getFloat64(0, true);
+}
+// Protobuf int64 stored as varint is unsigned by default; cast to signed.
+function asSignedInt(big) {
+  const u = BigInt.asUintN(64, big);
+  const s = BigInt.asIntN(64, u);
+  return Number(s);
+}
+
+// Extract a single record from one djmd sample's bytes.
+function extractRecord(sample) {
+  const r = {};
+  // GPS
+  const coordUnits = walkPath(sample, [3, 3, 4, 1, 1]);
+  const isDeg = coordUnits && coordUnits.wt === 0 && Number(coordUnits.varint) === 1;
+  const lat = walkPath(sample, [3, 3, 4, 1, 2]);
+  const lon = walkPath(sample, [3, 3, 4, 1, 3]);
+  if (lat && lat.wt === 1) {
+    let v = asDouble(lat.bytes);
+    if (!isDeg) v = v * 180 / Math.PI;
+    if (Number.isFinite(v) && Math.abs(v) <= 90) r.lat = v;
+  }
+  if (lon && lon.wt === 1) {
+    let v = asDouble(lon.bytes);
+    if (!isDeg) v = v * 180 / Math.PI;
+    if (Number.isFinite(v) && Math.abs(v) <= 180) r.lon = v;
+  }
+  // Altitude (absolute mm as int64)
+  const absAlt = walkPath(sample, [3, 3, 4, 2]);
+  if (absAlt && absAlt.wt === 0) {
+    const v = asSignedInt(absAlt.varint) / 1000;
+    if (Number.isFinite(v)) r.alt = v;
+  }
+  // Relative altitude (float, also stored as scaled ÷1000 per exiftool convention)
+  const relAlt = walkPath(sample, [3, 3, 5, 1]);
+  if (relAlt) {
+    if (relAlt.wt === 5) r.alt_rel = asFloat(relAlt.bytes) / 1000;
+    else if (relAlt.wt === 0) r.alt_rel = asSignedInt(relAlt.varint) / 1000;
+  }
+  // Drone yaw/pitch/roll (×10)
+  const droneInfo = walkPath(sample, [3, 3, 3]);
+  if (droneInfo && droneInfo.wt === 2) {
+    const sub = droneInfo.bytes;
+    const r1 = getField(sub, 0, sub.length, 1);
+    const r2 = getField(sub, 0, sub.length, 2);
+    const r3 = getField(sub, 0, sub.length, 3);
+    if (r1 && r1.wt === 0) r.roll = asSignedInt(r1.varint) / 10;
+    if (r2 && r2.wt === 0) r.pitch = asSignedInt(r2.varint) / 10;
+    if (r3 && r3.wt === 0) r.yaw = asSignedInt(r3.varint) / 10;
+  }
+  // Gimbal (×10)
+  const gimbal = walkPath(sample, [3, 4, 3]);
+  if (gimbal && gimbal.wt === 2) {
+    const sub = gimbal.bytes;
+    const r1 = getField(sub, 0, sub.length, 1);
+    const r3 = getField(sub, 0, sub.length, 3);
+    if (r1 && r1.wt === 0) r.g_pitch = asSignedInt(r1.varint) / 10;
+    if (r3 && r3.wt === 0) r.g_yaw   = asSignedInt(r3.varint) / 10;
+  }
+  // ISO
+  const iso = walkPath(sample, [3, 2, 7, 1]);
+  if (iso && iso.wt === 5) r.iso = Math.round(asFloat(iso.bytes));
+  // Shutter / FNumber: DJI stores these as a "rational" — two packed varints
+  // (numerator, denominator) inside the leaf's length-delimited payload.
+  // (See exiftool DJI.pm Format => 'rational' for details.)
+  function readRational(leaf) {
+    if (!leaf || leaf.wt !== 2) return null;
+    const b = leaf.bytes;
+    let p = 0;
+    let n; [n, p] = readVarint(b, p); if (n === null) return null;
+    let d; [d, p] = readVarint(b, p); if (d === null) return null;
+    return [Number(n), Number(d)];
+  }
+  const shr = readRational(walkPath(sample, [3, 2, 10, 1]));
+  if (shr && shr[1] > 0) r.shutter = `${shr[0]}/${shr[1]}`;
+  const fnr = readRational(walkPath(sample, [3, 2, 11, 1]));
+  if (fnr && fnr[1] > 0) r.fnum = fnr[0] / fnr[1];
+  // CCT
+  const cct = walkPath(sample, [3, 2, 32, 1]);
+  if (cct && cct.wt === 0) r.cct = Number(cct.varint);
+  // Temperature
+  const temp = walkPath(sample, [3, 2, 37, 1]);
+  if (temp && temp.wt === 5) r.temp = asFloat(temp.bytes);
+  return r;
+}
+
+// Public: extract telemetry from a DJI MP4 File. onProgress(done, total).
+async function extractTelemetry(file, onProgress) {
+  const handle = await openDJI(file);
+  const tab = handle.djmd;
+  if (!tab) throw new Error('No djmd track found.');
+  const N = tab.sampleCount;
+  const records = new Array(N);
+
+  // Process in batches to stream IO and provide progress.
+  const BATCH = 1500;
+  for (let i = 0; i < N; i += BATCH) {
+    const j = Math.min(i + BATCH, N);
+    const samples = await readSampleRange(handle, 'djmd', i, j);
+    for (let k = 0; k < samples.length; k++) {
+      const idx = i + k;
+      const rec = extractRecord(samples[k]);
+      rec.t = tab.times[idx];
+      records[idx] = rec;
+    }
+    if (onProgress) onProgress(j, N);
+    // Yield to UI between batches
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  // Forward-fill GPS and altitude through pre-lock frames.
+  const last = {};
+  for (const r of records) {
+    for (const k of ['lat', 'lon', 'alt', 'alt_rel']) {
+      if (r[k] !== undefined && Number.isFinite(r[k])) last[k] = r[k];
+      else if (last[k] !== undefined) r[k] = last[k];
+    }
+  }
+
+  // Per-sample times come from the djmd track's stts box (parsed in mp4.js,
+  // attached as rec.t at extraction time). Those are precise to the track's
+  // own timescale, so we use them as-is — anchoring to a hardcoded fps would
+  // double-time 60 fps recordings and miscalibrate any future variable-rate
+  // capture.
+  return records;
+}
+
+// ===== viewer.js =====
+// Flight viewer: 2D map + 3D scene + telemetry HUD, all driven by the
+// HTML <video> element as the master playback clock. Ported from the original
+// inline viewer at /tmp/build_html.py.
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// init(records, segments): set up everything and start the render loop.
+// records:  array of telemetry records sorted by .t (seconds from flight start)
+// segments: array of {url, start, duration} describing one or more video clips
+//           that play back-to-back, e.g. DJI's auto-split chunks.
+//           Pass a single-element array for a non-split flight.
+//           For backwards-compat we also accept a plain string URL.
+function initViewer(records, segments) {
+  if (!records.length) throw new Error('No telemetry records');
+
+  const SEGMENTS = (typeof segments === 'string')
+    ? [{ url: segments, start: 0, duration: records[records.length - 1].t - records[0].t + 0.04 }]
+    : segments;
+  if (!SEGMENTS.length) throw new Error('No video segments provided');
+
+  const DATA = records;
+  const T0 = DATA[0].t;
+  const T_END = DATA[DATA.length - 1].t;
+  const TIMES = DATA.map(d => d.t);
+  // Total playback duration is the sum of segment durations (so the scrubber
+  // matches what the eye sees, even if telemetry covers slightly more/less).
+  let DURATION = SEGMENTS.reduce((s, x) => s + x.duration, 0) || (T_END - T0);
+
+  document.getElementById('meta').textContent =
+    `${DATA.length} samples · ${DURATION.toFixed(1)}s · ` +
+    `${DATA.filter(d => d.lat !== undefined).length} GPS fixes`;
+
+  // ---------- Interpolation helpers ----------
+  const lerp = (a, b, t) => a + (b - a) * t;
+  function lerpAngle(a, b, t) {
+    const d = ((b - a) % 360 + 540) % 360 - 180;
+    return a + d * t;
+  }
+  function findIndex(t) {
+    let lo = 0, hi = TIMES.length - 1;
+    if (t <= TIMES[0]) return 0;
+    if (t >= TIMES[hi]) return hi - 1;
+    while (lo < hi - 1) {
+      const m = (lo + hi) >> 1;
+      if (TIMES[m] <= t) lo = m; else hi = m;
+    }
+    return lo;
+  }
+  function sampleAt(t) {
+    const i = findIndex(t);
+    const a = DATA[i], b = DATA[Math.min(i + 1, DATA.length - 1)];
+    const span = b.t - a.t;
+    const u = span > 0 ? Math.max(0, Math.min(1, (t - a.t) / span)) : 0;
+    const out = { t, _idx: i };
+    for (const k of ['lat', 'lon', 'alt', 'alt_rel', 'iso', 'fnum', 'temp', 'cct']) {
+      if (a[k] !== undefined && b[k] !== undefined) out[k] = lerp(a[k], b[k], u);
+      else out[k] = a[k] ?? b[k];
+    }
+    for (const k of ['yaw', 'pitch', 'roll', 'g_pitch', 'g_yaw', 'g_roll']) {
+      if (a[k] !== undefined && b[k] !== undefined) out[k] = lerpAngle(a[k], b[k], u);
+      else out[k] = a[k] ?? b[k];
+    }
+    out.shutter = a.shutter ?? b.shutter;
+    return out;
+  }
+
+  // ---------- 2D Map ----------
+  const gpsPoints = DATA.filter(d => d.lat !== undefined && d.lon !== undefined);
+  const latlngs = gpsPoints.map(d => [d.lat, d.lon]);
+  const map = L.map('map', { zoomControl: true, preferCanvas: true });
+  // Esri World_Imagery only ships native tiles up to ~zoom 19 (and ~20 in
+  // dense urban areas). Cap requests at 19 and let Leaflet upscale beyond
+  // that — otherwise tight flight paths trigger "Map data not available".
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Esri', maxZoom: 22, maxNativeZoom: 19 }).addTo(map);
+  L.polyline(latlngs, { color: '#58a6ff', weight: 2, opacity: 0.85 }).addTo(map);
+  const traveledCoords = [];
+  const traveled = L.polyline(traveledCoords, { color: '#ff6b35', weight: 3, opacity: 0.95 }).addTo(map);
+  let traveledIdx = 0;
+  if (latlngs.length) {
+    // Clamp auto-zoom: very tight flights would otherwise zoom past native
+    // tile resolution, leaving a single stretched tile.
+    map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 18 });
+  } else {
+    map.setView([0, 0], 2);
+  }
+  // The map container often resolves its size after the browser does layout.
+  // Tell Leaflet to re-tile once that's settled — otherwise it commits to a
+  // stale (often tiny) viewport size and only loads one or two tiles.
+  setTimeout(() => map.invalidateSize(), 50);
+  requestAnimationFrame(() => map.invalidateSize());
+  const droneIcon = L.divIcon({
+    className: 'drone-icon',
+    html: '<div style="width:18px;height:18px;background:#ff6b35;border:3px solid #fff;border-radius:50%;box-shadow:0 0 14px #ff6b35"></div>',
+    iconSize: [18, 18], iconAnchor: [9, 9],
+  });
+  const droneMarker = L.marker(latlngs[0] || [0, 0], { icon: droneIcon }).addTo(map);
+
+  // ---------- 3D Scene ----------
+  const canvas = document.getElementById('scene');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d1117);
+  scene.fog = new THREE.Fog(0x0d1117, 200, 1500);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 5000);
+  const controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+
+  // Equirectangular local-meter projection centred on the first GPS fix.
+  const meterPerLat = 111320;
+  const lonScale = (lat) => 111320 * Math.cos(lat * Math.PI / 180);
+  const cx = gpsPoints.length ? gpsPoints[0].lon : 0;
+  const cy = gpsPoints.length ? gpsPoints[0].lat : 0;
+  const baseAlt = gpsPoints.length ? Math.min(...gpsPoints.map(d => d.alt || 0)) : 0;
+  function projectXYZ(lat, lon, alt) {
+    const x = (lon - cx) * lonScale(cy);
+    const z = -(lat - cy) * meterPerLat;
+    const y = ((alt ?? baseAlt) - baseAlt);
+    return [x, y, z];
+  }
+  function projectVec(lat, lon, alt) {
+    const [x, y, z] = projectXYZ(lat, lon, alt);
+    return new THREE.Vector3(x, y, z);
+  }
+
+  scene.add(new THREE.GridHelper(2000, 80, 0x30363d, 0x21262d));
+
+  const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt || baseAlt));
+  let pathSize = 200;
+  let trailPos = null, trail = null;
+  if (pathPts.length) {
+    scene.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pathPts),
+      new THREE.LineBasicMaterial({ color: 0x58a6ff }),
+    ));
+    trailPos = new Float32Array(pathPts.length * 3);
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+    trailGeo.setDrawRange(0, 0);
+    trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0xff6b35 }));
+    scene.add(trail);
+    const box = new THREE.Box3().setFromPoints(pathPts);
+    const center = box.getCenter(new THREE.Vector3());
+    pathSize = Math.max(box.getSize(new THREE.Vector3()).length(), 50);
+    camera.position.set(center.x + pathSize * 0.7, Math.max(pathSize * 0.5, 80), center.z + pathSize * 0.7);
+    controls.target.copy(center);
+  }
+
+  // Drone mesh (scales with the flight bounding box so it's always visible).
+  const droneScale = Math.max(pathSize * 0.04, 4);
+  const droneGroup = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 0.3, 1),
+    new THREE.MeshStandardMaterial({ color: 0xff6b35, metalness: 0.6, roughness: 0.3, emissive: 0x551100, emissiveIntensity: 0.5 }),
+  );
+  droneGroup.add(body);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 0.15), new THREE.MeshStandardMaterial({ color: 0xc9d1d9 }));
+  droneGroup.add(arm);
+  const arm2 = arm.clone(); arm2.rotation.y = Math.PI / 2; droneGroup.add(arm2);
+  for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    const r = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 0.05, 16),
+      new THREE.MeshStandardMaterial({ color: 0x222, transparent: true, opacity: 0.6 }),
+    );
+    r.position.set(dx, 0.1, dz);
+    droneGroup.add(r);
+  }
+  const dropLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -200, 0)]),
+    new THREE.LineDashedMaterial({ color: 0xff6b35, dashSize: 1, gapSize: 0.5, transparent: true, opacity: 0.45 }),
+  );
+  dropLine.computeLineDistances();
+  droneGroup.add(dropLine);
+  droneGroup.scale.setScalar(droneScale);
+  scene.add(droneGroup);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(50, 200, 100);
+  scene.add(sun);
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== w || canvas.height !== h) {
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+  }
+  new ResizeObserver(resize).observe(canvas);
+  new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById('map'));
+
+  // ---------- Telemetry HUD ----------
+  const tel = document.getElementById('tel');
+  tel.innerHTML = '';
+  const FIELDS = [
+    ['lat', 'Lat'], ['lon', 'Lon'],
+    ['alt', 'Alt', 'm'], ['alt_rel', 'Alt Rel', 'm'],
+    ['yaw', 'Yaw', '°'], ['pitch', 'Pitch', '°'], ['roll', 'Roll', '°'],
+    ['g_pitch', 'Gim Pitch', '°'], ['g_yaw', 'Gim Yaw', '°'],
+    ['iso', 'ISO'], ['shutter', 'Shutter'], ['fnum', 'f'],
+  ];
+  const cells = {};
+  for (const [k, label] of FIELDS) {
+    const div = document.createElement('div');
+    div.className = 'tel-row';
+    div.innerHTML = `<span class="k">${label}</span><span class="v">—</span>`;
+    tel.appendChild(div);
+    cells[k] = div.querySelector('.v');
+  }
+  const hud = document.getElementById('hud');
+  hud.innerHTML = `<div><span class="kv"><b>ALT</b><span id="hud-alt">—</span></span><span class="kv"><b>YAW</b><span id="hud-yaw">—</span></span></div>
+                   <div><span class="kv"><b>LAT</b><span id="hud-lat">—</span></span><span class="kv"><b>LON</b><span id="hud-lon">—</span></span></div>`;
+  const hudAlt = document.getElementById('hud-alt');
+  const hudYaw = document.getElementById('hud-yaw');
+  const hudLat = document.getElementById('hud-lat');
+  const hudLon = document.getElementById('hud-lon');
+
+  // ---------- Playback (multi-segment) ----------
+  // The single <video> element is the canonical playhead clock. We swap its
+  // src on segment boundaries and treat `currentSegmentIdx + video.currentTime`
+  // as the global flight time. Wrappers globalTime / setGlobalTime hide that
+  // bookkeeping from the rest of the viewer.
+  const video = document.getElementById('video');
+  video.innerHTML = '';
+  let curSegIdx = 0;
+  let pendingSeekLocal = 0;
+  let wantPlaying = false;
+  let suppressEnded = false;  // set true while we hot-swap to next segment
+
+  function loadSeg(idx, localTime = 0) {
+    curSegIdx = idx;
+    pendingSeekLocal = localTime;
+    suppressEnded = true;
+    video.src = SEGMENTS[idx].url;
+    video.load();
+  }
+  loadSeg(0, 0);
+
+  const playBtn = document.getElementById('play');
+  const scrub = document.getElementById('scrub');
+  const timeLbl = document.getElementById('time');
+
+  function fmtTime(s) {
+    const m = Math.floor(s / 60), ss = Math.floor(s % 60);
+    return `${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+  }
+
+  function globalTime() {
+    return SEGMENTS[curSegIdx].start + (video.currentTime || 0);
+  }
+  async function setGlobalTime(t) {
+    t = Math.max(0, Math.min(DURATION, t));
+    // Find which segment contains t
+    let idx = SEGMENTS.length - 1;
+    for (let i = 0; i < SEGMENTS.length; i++) {
+      if (t < SEGMENTS[i].start + SEGMENTS[i].duration) { idx = i; break; }
+    }
+    const local = Math.max(0, t - SEGMENTS[idx].start);
+    if (idx !== curSegIdx) {
+      loadSeg(idx, local);
+    } else {
+      try { video.currentTime = local; } catch (_) {}
+    }
+  }
+
+  // Once metadata for the current segment is ready, apply any pending seek
+  // and resume playing if the user was watching.
+  video.addEventListener('loadedmetadata', () => {
+    try { video.currentTime = pendingSeekLocal; } catch (_) {}
+    if (wantPlaying) video.play().catch(() => {});
+    suppressEnded = false;
+  });
+
+  // When the current segment ends, advance to the next; otherwise stop.
+  video.addEventListener('ended', () => {
+    if (suppressEnded) return;
+    if (curSegIdx + 1 < SEGMENTS.length) {
+      loadSeg(curSegIdx + 1, 0);
+    } else {
+      wantPlaying = false;
+      playBtn.textContent = 'Play';
+    }
+  });
+
+  // ---------- Camera modes ----------
+  let followMode = false;
+  const followForward = new THREE.Vector3(0, 0, -1);
+  const _tmpFwd = new THREE.Vector3();
+  const _camTarget = new THREE.Vector3();
+  const _camDesired = new THREE.Vector3();
+  const camBtn = document.getElementById('cam-mode');
+  camBtn.textContent = 'Free';
+  camBtn.addEventListener('click', () => {
+    followMode = !followMode;
+    controls.enabled = !followMode;
+    camBtn.textContent = followMode ? 'Follow' : 'Free';
+    camBtn.classList.toggle('is-follow', followMode);
+  });
+
+  let _lastFrameMs = performance.now();
+
+  function update() {
+    const nowMs = performance.now();
+    const dtSec = Math.min(0.1, (nowMs - _lastFrameMs) / 1000);
+    _lastFrameMs = nowMs;
+
+    const curT = T0 + globalTime();
+    const r = sampleAt(curT);
+
+    if (r.lat !== undefined) droneMarker.setLatLng([r.lat, r.lon]);
+
+    if (gpsPoints.length) {
+      if (traveledIdx > 0 && gpsPoints[traveledIdx - 1].t > curT) {
+        traveledIdx = 0;
+        traveledCoords.length = 0;
+      }
+      while (traveledIdx < gpsPoints.length && gpsPoints[traveledIdx].t <= curT) {
+        traveledCoords.push([gpsPoints[traveledIdx].lat, gpsPoints[traveledIdx].lon]);
+        traveledIdx++;
+      }
+      const live = (r.lat !== undefined) ? [[r.lat, r.lon]] : [];
+      traveled.setLatLngs(traveledCoords.concat(live));
+    }
+
+    if (r.lat !== undefined) {
+      const [x, y, z] = projectXYZ(r.lat, r.lon, r.alt);
+      droneGroup.position.set(x, y, z);
+      if (r.yaw !== undefined) droneGroup.rotation.y = -r.yaw * Math.PI / 180;
+      if (r.pitch !== undefined) droneGroup.rotation.x = r.pitch * Math.PI / 180;
+      if (r.roll !== undefined) droneGroup.rotation.z = -r.roll * Math.PI / 180;
+      droneGroup.visible = true;
+    } else {
+      droneGroup.visible = false;
+    }
+
+    if (trail && trailPos) {
+      let visible = 0;
+      for (let i = 0; i < gpsPoints.length; i++) {
+        if (gpsPoints[i].t > curT) break;
+        const p = pathPts[i];
+        trailPos[visible * 3] = p.x;
+        trailPos[visible * 3 + 1] = p.y;
+        trailPos[visible * 3 + 2] = p.z;
+        visible++;
+      }
+      if (r.lat !== undefined && visible < pathPts.length) {
+        const [x, y, z] = projectXYZ(r.lat, r.lon, r.alt);
+        trailPos[visible * 3] = x;
+        trailPos[visible * 3 + 1] = y;
+        trailPos[visible * 3 + 2] = z;
+        visible++;
+      }
+      trail.geometry.attributes.position.needsUpdate = true;
+      trail.geometry.setDrawRange(0, visible);
+    }
+
+    for (const [k, , unit] of FIELDS) {
+      let v = r[k];
+      if (v === undefined || v === null) { cells[k].textContent = '—'; continue; }
+      if (typeof v === 'number') {
+        v = (k === 'lat' || k === 'lon') ? v.toFixed(6) : v.toFixed(2);
+      }
+      cells[k].textContent = unit ? `${v} ${unit}` : `${v}`;
+    }
+    if (r.alt !== undefined) hudAlt.textContent = r.alt.toFixed(1) + ' m';
+    if (r.yaw !== undefined) hudYaw.textContent = r.yaw.toFixed(1) + '°';
+    if (r.lat !== undefined) hudLat.textContent = r.lat.toFixed(6);
+    if (r.lon !== undefined) hudLon.textContent = r.lon.toFixed(6);
+
+    if (followMode && r.lat !== undefined) {
+      const past = sampleAt(Math.max(T0, curT - 0.6));
+      if (past.lat !== undefined) {
+        const [px, , pz] = projectXYZ(past.lat, past.lon, past.alt);
+        const [cx2, , cz2] = projectXYZ(r.lat, r.lon, r.alt);
+        _tmpFwd.set(cx2 - px, 0, cz2 - pz);
+        if (_tmpFwd.lengthSq() > 0.04) {
+          _tmpFwd.normalize();
+          const blend = 1 - Math.exp(-dtSec * 2.5);
+          followForward.lerp(_tmpFwd, blend).normalize();
+        }
+      }
+      const back = Math.max(pathSize * 0.10, 25);
+      const up = Math.max(pathSize * 0.05, 12);
+      const [dx, dy, dz] = projectXYZ(r.lat, r.lon, r.alt);
+      _camTarget.set(dx, dy, dz);
+      _camDesired.copy(_camTarget).addScaledVector(followForward, -back);
+      _camDesired.y += up;
+      const k = 1 - Math.exp(-dtSec * 4);
+      camera.position.lerp(_camDesired, k);
+      controls.target.lerp(_camTarget, k);
+      camera.lookAt(controls.target);
+    }
+
+    const elapsed = globalTime();
+    timeLbl.textContent = `${fmtTime(elapsed)} / ${fmtTime(DURATION)}`;
+    if (document.activeElement !== scrub) {
+      scrub.value = (elapsed / DURATION) * 10000;
+    }
+  }
+
+  let rafId;
+  function loop() {
+    update();
+    controls.update();
+    resize();
+    renderer.render(scene, camera);
+    rafId = requestAnimationFrame(loop);
+  }
+  loop();
+
+  // ---------- Controls ----------
+  const onPlayClick = () => {
+    // If we're at the very end of the last segment, rewind to the start.
+    if (curSegIdx === SEGMENTS.length - 1 && video.currentTime >= (video.duration - 0.05)) {
+      loadSeg(0, 0);
+      wantPlaying = true;
+      return;
+    }
+    if (video.paused) {
+      wantPlaying = true;
+      video.play().catch(() => {});
+    } else {
+      wantPlaying = false;
+      video.pause();
+    }
+  };
+  const onVidPlay = () => { playBtn.textContent = 'Pause'; wantPlaying = true; };
+  const onVidPause = () => { playBtn.textContent = 'Play'; if (!suppressEnded) wantPlaying = false; };
+  const onResetClick = () => {
+    wantPlaying = false;
+    video.pause();
+    if (curSegIdx !== 0) loadSeg(0, 0);
+    else { try { video.currentTime = 0; } catch (_) {} }
+  };
+  const onScrubInput = (e) => {
+    const t = (e.target.value / 10000) * DURATION;
+    setGlobalTime(t);
+  };
+  const speedHandlers = [];
+  for (const b of document.querySelectorAll('#speed button')) {
+    const h = () => {
+      video.playbackRate = parseFloat(b.dataset.s);
+      document.querySelectorAll('#speed button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    };
+    b.addEventListener('click', h);
+    speedHandlers.push([b, h]);
+  }
+
+  playBtn.addEventListener('click', onPlayClick);
+  video.addEventListener('play', onVidPlay);
+  video.addEventListener('pause', onVidPause);
+  document.getElementById('reset').addEventListener('click', onResetClick);
+  scrub.addEventListener('input', onScrubInput);
+
+  // Return a teardown function so main.js can switch flights without leaks.
+  return function destroy() {
+    cancelAnimationFrame(rafId);
+    playBtn.removeEventListener('click', onPlayClick);
+    video.removeEventListener('play', onVidPlay);
+    video.removeEventListener('pause', onVidPause);
+    document.getElementById('reset').removeEventListener('click', onResetClick);
+    scrub.removeEventListener('input', onScrubInput);
+    for (const [b, h] of speedHandlers) b.removeEventListener('click', h);
+    map.remove();
+    renderer.dispose();
+    scene.traverse(o => {
+      if (o.geometry) o.geometry.dispose?.();
+      if (o.material) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) m.dispose?.();
+      }
+    });
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  };
+}
+
+// ===== main.js =====
+// Drag-and-drop loader. The good UX is: drop just the MP4. We try to read
+// telemetry directly from the MP4's djmd track. If the user dropped an SRT
+// alongside, that's used as a fallback for older drone firmwares whose proto
+// schema we don't recognise.
+//
+// Multi-segment flights: DJI auto-splits long recordings at ~4 GB into
+// consecutively-numbered files (DJI_<ts>_0003_D.MP4, _0004_D.MP4, …). The
+// loader detects siblings by filename and concatenates them into one
+// continuous flight (telemetry stitched, video clips played back-to-back).
+const dropEl = document.getElementById('drop');
+const zoneEl = document.getElementById('zone');
+const fileInput = document.getElementById('file-input');
+const fileList = document.getElementById('file-list');
+const errEl = document.getElementById('err');
+const appEl = document.getElementById('app');
+const reloadBtn = document.getElementById('reload');
+
+let pendingVideos = [];   // sorted by DJI counter
+let pendingSRT = null;
+let currentBlobURLs = [];
+let teardown = null;
+
+function setError(msg) { errEl.textContent = msg || ''; errEl.classList.remove('busy'); }
+function setBusy(msg)  { errEl.textContent = msg || ''; errEl.classList.add('busy'); }
+
+function renderFileList() {
+  fileList.innerHTML = '';
+  for (const v of pendingVideos) {
+    const pill = document.createElement('span');
+    pill.className = 'pill';
+    pill.textContent = `📹 ${v.name} · ${(v.size / 1024 / 1024).toFixed(0)} MB`;
+    fileList.appendChild(pill);
+  }
+  if (pendingSRT) {
+    const pill = document.createElement('span');
+    pill.className = 'pill';
+    pill.textContent = `SRT · ${pendingSRT.name}`;
+    fileList.appendChild(pill);
+  }
+}
+
+function classify(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.mp4') || name.endsWith('.mov') || name.endsWith('.m4v') || name.endsWith('.lrf')) return 'video';
+  if (name.endsWith('.srt')) return 'srt';
+  if (file.type.startsWith('video/')) return 'video';
+  if (file.type === 'application/x-subrip' || file.type === 'text/srt') return 'srt';
+  return null;
+}
+
+function videoBlobURL(file) {
+  if (file.name.toLowerCase().endsWith('.lrf')) {
+    return URL.createObjectURL(new Blob([file], { type: 'video/mp4' }));
+  }
+  return URL.createObjectURL(file);
+}
+
+// DJI naming: DJI_YYYYMMDDHHMMSS_NNNN_<suffix>.<ext>. Files of one flight
+// share the timestamp prefix when split (rare) — but more commonly each
+// segment carries its own start-time. The reliable signal across all DJI
+// models is the consecutive NNNN counter when the user provides multiple
+// files in one batch. We sort by that counter.
+function parseDJIName(name) {
+  const m = name.match(/^DJI_(\d{14})_(\d{4})_(\w+)\.(MP4|MOV|LRF)$/i);
+  if (!m) return null;
+  return {
+    ts: m[1],
+    counter: parseInt(m[2], 10),
+    suffix: m[3].toUpperCase(),
+    ext: m[4].toUpperCase(),
+  };
+}
+
+function sortVideosByCounter(files) {
+  return files.slice().sort((a, b) => {
+    const ai = parseDJIName(a.name);
+    const bi = parseDJIName(b.name);
+    if (ai && bi) return ai.counter - bi.counter;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+async function tryStart() {
+  if (pendingVideos.length === 0) return;
+  setError('');
+
+  const segmentRecords = [];   // per-file telemetry (each starts at t=0)
+  const segmentDurations = []; // per-file video duration in seconds
+  let useSRTFallback = false;
+
+  // 1) Try in-MP4 telemetry per segment.
+  for (let si = 0; si < pendingVideos.length; si++) {
+    const f = pendingVideos[si];
+    const isMP4 = /\.(mp4|mov|m4v)$/i.test(f.name);
+    if (!isMP4) { useSRTFallback = true; segmentRecords.push(null); continue; }
+    setBusy(`Reading telemetry from segment ${si + 1}/${pendingVideos.length} (${f.name})…`);
+    console.log('[dji-replay] extracting from', f.name);
+    try {
+      const recs = await extractTelemetry(f, (done, total) => {
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        setBusy(`Reading telemetry from segment ${si + 1}/${pendingVideos.length} — ${pct}%`);
+      });
+      segmentRecords.push(recs);
+    } catch (e) {
+      console.warn('[dji-replay] segment parse failed:', f.name, e.message);
+      segmentRecords.push(null);
+      useSRTFallback = true;
+    }
+  }
+
+  // 2) Get each segment's video duration (we read it via a hidden <video>).
+  setBusy('Measuring video durations…');
+  for (let si = 0; si < pendingVideos.length; si++) {
+    segmentDurations.push(await measureDuration(pendingVideos[si]));
+  }
+
+  // 3) If any segment failed in-MP4 parse, fall back to SRT for that one.
+  let records = null;
+  let source = 'mp4';
+  if (useSRTFallback || segmentRecords.some(r => r === null || r.length === 0 ||
+        r.filter(x => x.lat !== undefined).length === 0)) {
+    if (pendingSRT && pendingVideos.length === 1) {
+      // Single-segment SRT fallback (the simple case).
+      try {
+        records = parseSRT(await pendingSRT.text());
+        source = 'srt';
+      } catch (e) {
+        setError(`SRT parse failed: ${e.message}`);
+        return;
+      }
+    } else {
+      setError('Some segments had no readable telemetry. Try the .SRT sidecar files instead, ' +
+               'or run scripts/extract_srt.py on the folder once.');
+      return;
+    }
+  } else {
+    // Concatenate per-segment records with cumulative time offsets aligned
+    // to the actual video durations (not telemetry's frame-anchored time).
+    records = [];
+    let offset = 0;
+    for (let si = 0; si < segmentRecords.length; si++) {
+      const segRecs = segmentRecords[si];
+      const vDur = segmentDurations[si] || (segRecs[segRecs.length - 1].t + 1 / 29.97);
+      for (const r of segRecs) records.push({ ...r, t: r.t + offset });
+      offset += vDur;
+    }
+  }
+
+  if (records.length === 0 || records.filter(r => r.lat !== undefined).length === 0) {
+    setError('No GPS telemetry found in any segment.');
+    return;
+  }
+
+  // Build segment list for the viewer (URL + start time + duration each)
+  for (const u of currentBlobURLs) URL.revokeObjectURL(u);
+  currentBlobURLs = pendingVideos.map(videoBlobURL);
+  const segments = pendingVideos.map((f, i) => ({
+    name: f.name,
+    url: currentBlobURLs[i],
+    start: segmentDurations.slice(0, i).reduce((s, d) => s + d, 0),
+    duration: segmentDurations[i],
+  }));
+
+  if (teardown) { try { teardown(); } catch (_) {} teardown = null; }
+
+  dropEl.style.display = 'none';
+  appEl.classList.add('active');
+
+  try {
+    teardown = initViewer(records, segments);
+    const meta = document.getElementById('meta');
+    if (meta) {
+      const totalDur = segments.reduce((s, x) => s + x.duration, 0);
+      meta.textContent += `  ·  ${pendingVideos.length} segment${pendingVideos.length > 1 ? 's' : ''} · ${totalDur.toFixed(1)}s · source: ${source.toUpperCase()}`;
+    }
+  } catch (e) {
+    console.error(e);
+    setError(`Viewer failed to start: ${e.message}`);
+    appEl.classList.remove('active');
+    dropEl.style.display = '';
+  }
+}
+
+// Read a video file's duration via a one-shot detached <video>.
+function measureDuration(file) {
+  return new Promise((resolve) => {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.muted = true;
+    const url = URL.createObjectURL(
+      file.name.toLowerCase().endsWith('.lrf')
+        ? new Blob([file], { type: 'video/mp4' })
+        : file,
+    );
+    v.src = url;
+    v.addEventListener('loadedmetadata', () => {
+      const d = Number.isFinite(v.duration) ? v.duration : 0;
+      URL.revokeObjectURL(url);
+      resolve(d);
+    });
+    v.addEventListener('error', () => {
+      URL.revokeObjectURL(url);
+      resolve(0);
+    });
+  });
+}
+
+function acceptFiles(files) {
+  if (!files || files.length === 0) return;
+  const newVideos = [];
+  for (const f of files) {
+    const kind = classify(f);
+    if (kind === 'video') newVideos.push(f);
+    else if (kind === 'srt') pendingSRT = f;
+  }
+  if (newVideos.length) {
+    // Merge with any already-pending videos (in case of multi-step drop)
+    const all = [...pendingVideos, ...newVideos];
+    // De-dupe by name
+    const seen = new Set();
+    pendingVideos = all.filter(f => seen.has(f.name) ? false : (seen.add(f.name), true));
+    pendingVideos = sortVideosByCounter(pendingVideos);
+  }
+  renderFileList();
+  if (pendingVideos.length === 0 && pendingSRT) {
+    setError('Got the .SRT. Now drop the matching video(s).');
+    return;
+  }
+  if (pendingVideos.length === 0) return;
+
+  // Hint about siblings if user dropped a single file from a multi-counter set.
+  const counters = pendingVideos.map(f => parseDJIName(f.name)?.counter).filter(c => c != null);
+  if (counters.length === 1) {
+    setError('Tip: long DJI flights split across multiple files (counter _0003, _0004, …). ' +
+             'If this segment looks shorter than the actual flight, drop the others too.');
+    // Still try to start with the single file — it works for short flights.
+  }
+  setError('');
+  tryStart();
+}
+
+['dragenter', 'dragover'].forEach(evt => {
+  document.body.addEventListener(evt, (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zoneEl.classList.add('over');
+  });
+});
+['dragleave', 'drop'].forEach(evt => {
+  document.body.addEventListener(evt, (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (evt === 'dragleave' && e.target !== document.body && e.relatedTarget) return;
+    zoneEl.classList.remove('over');
+  });
+});
+document.body.addEventListener('drop', (e) => acceptFiles(e.dataTransfer?.files));
+fileInput.addEventListener('change', () => acceptFiles(fileInput.files));
+
+reloadBtn.addEventListener('click', () => {
+  if (teardown) { try { teardown(); } catch (_) {} teardown = null; }
+  for (const u of currentBlobURLs) URL.revokeObjectURL(u);
+  currentBlobURLs = [];
+  pendingVideos = [];
+  pendingSRT = null;
+  fileInput.value = '';
+  renderFileList();
+  setError('');
+  appEl.classList.remove('active');
+  dropEl.style.display = '';
+});
+
+renderFileList();
+
+</script>
+</body>
+</html>

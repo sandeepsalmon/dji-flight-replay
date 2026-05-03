@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DJI Flight Replay</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Drop / landing state -->
+<div id="drop">
+  <h1>Fly it again.</h1>
+  <div class="tag">Drop a DJI video. The flight plays back across the original footage, a satellite map, and a 3D chase camera, all in sync.</div>
+
+  <label class="zone" id="zone">
+    <span class="big"></span>
+    <input id="file-input" type="file" accept=".mp4,.mov,.m4v,.lrf,.srt" multiple style="display:none">
+    <div class="sub">Pick a .MP4, .MOV, or .LRF. If the flight was split into parts, select all of them at once.</div>
+  </label>
+
+  <div class="files" id="file-list"></div>
+  <div class="err" id="err"></div>
+
+  <div class="help">
+    <p>Older drone or no telemetry in the file? Drop the matching <code>.SRT</code> next to the video (DJI Fly → gear → Camera → turn on <b>Video Subtitles</b>), or run <code>python3 scripts/extract_srt.py path/to/folder</code> once.</p>
+  </div>
+
+  <div class="priv">Files stay on your machine. The page is static. Nothing gets uploaded.</div>
+
+  <a class="credit" id="credit" href="https://github.com/sandeep-docket/dji-flight-replay" target="_blank" rel="noopener">Made by @sandeep</a>
+</div>
+
+<!-- Viewer state -->
+<div class="app" id="app">
+  <header>
+    <h1>DJI Flight Replay</h1>
+    <span class="meta" id="meta"></span>
+    <button id="reload">Load another flight</button>
+  </header>
+  <div class="views">
+    <div class="left">
+      <div class="label">Video</div>
+      <div class="hud" id="hud"></div>
+      <video id="video" preload="auto" playsinline controls></video>
+    </div>
+    <div class="right">
+      <div class="view">
+        <div class="label">2D · Map</div>
+        <div id="map"></div>
+      </div>
+      <div class="view">
+        <div class="label">3D · Scene</div>
+        <canvas id="scene"></canvas>
+        <button id="cam-mode">Free</button>
+        <div class="telemetry" id="tel"></div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <button id="play" class="primary">Play</button>
+    <button id="reset">Restart</button>
+    <span class="time" id="time">00:00 / 00:00</span>
+    <input type="range" id="scrub" min="0" max="10000" value="0" step="1">
+    <div class="speed" id="speed">
+      <button data-s="0.25">0.25×</button>
+      <button data-s="0.5">0.5×</button>
+      <button data-s="1" class="active">1×</button>
+      <button data-s="2">2×</button>
+      <button data-s="4">4×</button>
+      <button data-s="8">8×</button>
+    </div>
+  </footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
