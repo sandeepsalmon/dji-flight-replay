@@ -683,6 +683,9 @@ input[type="range"]::-moz-range-thumb {
 }
 </script>
 <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 // ===== srt.js =====
 // DJI SRT telemetry parser.
 //
@@ -1384,9 +1387,6 @@ async function extractTelemetry(file, onProgress) {
 //
 // On any tile-load error or canvas taint, returns null so the caller can
 // keep the grid fallback.
-
-import * as THREE from 'three';
-
 const TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const TILE_SIZE = 256;
 const MAX_NATIVE_ZOOM = 19;
@@ -1519,9 +1519,6 @@ async function createSatellitePlane({
 // Flight viewer: 2D map + 3D scene + telemetry HUD, all driven by the
 // HTML <video> element as the master playback clock. Ported from the original
 // inline viewer at /tmp/build_html.py.
-
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // init(records, segments): set up everything and start the render loop.
 // records:  array of telemetry records sorted by .t (seconds from flight start)
 // segments: array of {url, start, duration} describing one or more video clips
@@ -1655,8 +1652,14 @@ function initViewer(records, segments) {
       lonMin: Math.min(...lons), lonMax: Math.max(...lons),
       projectXYZ,
     }).then(plane => {
-      if (plane) { scene.remove(grid); scene.add(plane); }
-    }).catch(() => { /* leave the grid */ });
+      if (plane) {
+        scene.remove(grid);
+        scene.add(plane);
+        console.log('[satellite-plane] loaded, size=' + plane.geometry.parameters.width.toFixed(1) + 'x' + plane.geometry.parameters.height.toFixed(1) + ' at y=' + plane.position.y);
+      } else {
+        console.warn('[satellite-plane] returned null, keeping grid');
+      }
+    }).catch((e) => { console.warn('[satellite-plane] error:', e?.message); });
   }
 
   const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt || baseAlt));

@@ -22,16 +22,34 @@ EXPORT_PREFIX = re.compile(r"^\s*export\s+(default\s+)?(?=(async\s+)?(function|c
 EXPORT_DEFAULT_LINE = re.compile(r"^\s*export\s+default\s+\w+;\s*\n?", re.MULTILINE)
 
 
+BARE_IMPORT = re.compile(r"^\s*import\s+[^'\"]*from\s+['\"]([^'\"./][^'\"]*)['\"];?\s*\n?", re.MULTILINE)
+
+
 def merge_js() -> str:
+    """Concatenate JS files in JS_ORDER. Strip local imports and export
+    keywords. Deduplicate bare-specifier imports (e.g. 'three') so the
+    final module has each external module imported exactly once at the top
+    — duplicates would be a SyntaxError in a single ES module."""
+    seen_imports = set()
+    hoisted = []
     parts = []
     for name in JS_ORDER:
         with open(os.path.join(ROOT, 'js', name), 'r', encoding='utf-8') as f:
             src = f.read()
         src = LOCAL_IMPORT.sub('', src)
+
+        def keep_first(match):
+            stmt = match.group(0).strip()
+            if stmt in seen_imports:
+                return ''
+            seen_imports.add(stmt)
+            hoisted.append(stmt)
+            return ''
+        src = BARE_IMPORT.sub(keep_first, src)
         src = EXPORT_PREFIX.sub('', src)
         src = EXPORT_DEFAULT_LINE.sub('', src)
         parts.append(f'// ===== {name} =====\n{src.rstrip()}\n')
-    return '\n'.join(parts)
+    return '\n'.join(hoisted) + '\n\n' + '\n'.join(parts)
 
 
 def main():

@@ -139,8 +139,14 @@ export function initViewer(records, segments) {
       lonMin: Math.min(...lons), lonMax: Math.max(...lons),
       projectXYZ,
     }).then(plane => {
-      if (plane) { scene.remove(grid); scene.add(plane); }
-    }).catch(() => { /* leave the grid */ });
+      if (plane) {
+        scene.remove(grid);
+        scene.add(plane);
+        console.log('[satellite-plane] loaded, size=' + plane.geometry.parameters.width.toFixed(1) + 'x' + plane.geometry.parameters.height.toFixed(1) + ' at y=' + plane.position.y);
+      } else {
+        console.warn('[satellite-plane] returned null, keeping grid');
+      }
+    }).catch((e) => { console.warn('[satellite-plane] error:', e?.message); });
   }
 
   const pathPts = gpsPoints.map(d => projectVec(d.lat, d.lon, d.alt || baseAlt));
